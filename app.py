@@ -1,3 +1,4 @@
+# app.py（最新版・修正済み）
 import os
 import zipfile
 import streamlit as st
@@ -9,42 +10,43 @@ from utils import expand_query_gpt, encode_query, rerank_results_v13
 
 # 🔧 分割ファイルの復元ユーティリティ
 def restore_split_file(output_path, parts, folder="."):
-    with open(os.path.join(folder, output_path), "wb") as outfile:
+    with open(f"{output_path}.zip", "wb") as outfile:
         for part in parts:
-            part_path = os.path.join(folder, f"{output_path}_part_{part}")
+            part_path = os.path.join(folder, f"{output_path}_{part}")
             if os.path.exists(part_path):
                 with open(part_path, "rb") as infile:
                     outfile.write(infile.read())
             else:
                 raise FileNotFoundError(f"{part_path} が見つかりません")
 
-# ✅ 各種 zip / npy ファイルを復元
-def restore_search_assets():
-    zip_path = "search_assets.zip"
-    parts = ["a", "b", "c", "d"]
+# ✅ faiss_index の復元と展開
+def restore_faiss_index_zip():
+    zip_path = "faiss_index"
+    parts = ["part_a", "part_b"]
     restore_split_file(zip_path, parts, folder=".")
-    with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+    with zipfile.ZipFile(f"{zip_path}.zip", 'r') as zip_ref:
         zip_ref.extractall("data")
 
+# ✅ search_assets.zip の復元と展開
+def restore_search_assets():
+    zip_path = "search_assets"
+    parts = ["part_a", "part_b", "part_c", "part_d"]
+    restore_split_file(zip_path, parts, folder=".")
+    with zipfile.ZipFile(f"{zip_path}.zip", 'r') as zip_ref:
+        zip_ref.extractall("data")
+
+# ✅ meddra_embeddings.npy の復元（解凍不要）
 def restore_embeddings():
     output_path = "meddra_embeddings.npy"
-    parts = ["a", "b"]
-    restore_split_file(output_path, parts, folder=".")
+    parts = ["part_a", "part_b"]
+    restore_split_file("meddra_embeddings", parts, folder=".")
 
-def restore_faiss_index_zip():
-    zip_path = "faiss_index.zip"
-    parts = ["a", "b"]
-    restore_split_file(zip_path, parts, folder=".")
-    with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-        zip_ref.extractall("data")
-
-# ✅ 必要な資産を復元
+# ✅ 各種復元を実行
+restore_faiss_index_zip()
 restore_search_assets()
 restore_embeddings()
-restore_faiss_index_zip()
 
-# ✅ FAISSと用語を読み込む
-@st.cache_resource
+# ✅ データのロード
 def load_faiss_and_data():
     index = faiss.read_index("data/faiss_index.index")
     embeddings = np.load("data/meddra_embeddings.npy")

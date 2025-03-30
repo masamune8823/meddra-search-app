@@ -18,7 +18,8 @@ def restore_search_assets():
     restore_split_file(zip_path, parts)
 
     with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-        zip_ref.extractall("/mnt/data")  # FAISSなどの中身を展開
+        # 旧：zip_ref.extractall("/mnt/data")
+        zip_ref.extractall("data")  # カレントディレクトリ内の "data" フォルダ
 
 # 2. meddra_embeddings.npy の復元（解凍不要）
 def restore_embeddings():
@@ -42,8 +43,8 @@ import os
 
 @st.cache_resource
 def load_faiss_and_data():
-    index = faiss.read_index("/mnt/data/faiss_index.index")
-    embeddings = np.load("/mnt/data/meddra_embeddings.npy")
+    index = faiss.read_index("data/faiss_index.index")
+    embeddings = np.load("data/data/meddra_embeddings.npy")
     with open("/mnt/data/meddra_terms.npy", "rb") as f:
         terms = np.load(f, allow_pickle=True)
     with open("/mnt/data/term_master_df.pkl", "rb") as f:

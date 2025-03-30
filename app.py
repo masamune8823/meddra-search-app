@@ -1,37 +1,56 @@
 import os
 import zipfile
 import streamlit as st
-import numpy as np
 import pandas as pd
+import numpy as np
 import pickle
 import faiss
 from utils import expand_query_gpt, encode_query, rerank_results_v13
 
 # -----------------------------
-# ✅ STEP 1: faiss_index の復元
+# 分割ファイルの復元ユーティリティ
 # -----------------------------
 def restore_split_file(output_path, parts, folder="."):
-    with open(output_path, "wb") as outfile:
+    with open(os.path.join(folder, output_path), "wb") as outfile:
         for part in parts:
-            part_path = os.path.join(folder, f"faiss_index_part_{part}")
+            part_path = os.path.join(folder, f"{output_path}_part_{part}")
             if os.path.exists(part_path):
                 with open(part_path, "rb") as infile:
                     outfile.write(infile.read())
             else:
                 raise FileNotFoundError(f"{part_path} が見つかりません")
 
-def restore_faiss_index_zip():
-    zip_path = "faiss_index.zip"
-    restore_split_file(zip_path, ["a", "b"])  # 分割数に応じて拡張可能
+# -----------------------------
+# 各種 zip / npy 復元ステップ
+# -----------------------------
+def restore_search_assets():
+    zip_path = "search_assets.zip"
+    parts = ["a", "b", "c", "d"]
+    restore_split_file(zip_path, parts, folder=".")
     with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-        os.makedirs("data", exist_ok=True)
         zip_ref.extractall("data")
 
-# ✅ 呼び出し
+def restore_embeddings():
+    output_path = "meddra_embeddings.npy"
+    parts = ["a", "b"]
+    restore_split_file(output_path, parts, folder="data")
+
+def restore_faiss_index_zip():
+    zip_path = "faiss_index.zip"
+    parts = ["a", "b"]
+    restore_split_file(zip_path, parts, folder=".")
+    with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+        zip_ref.extractall("data")
+
+# -----------------------------
+# 呼び出し（Streamlit 実行前に1回）
+# -----------------------------
+restore_search_assets()
+restore_embeddings()
 restore_faiss_index_zip()
 
 # -----------------------------
-# ✅ STEP 2: FAISSとデータ読み込み
+# データ読み込み
 # -----------------------------
 @st.cache_resource
 def load_faiss_and_data():
@@ -46,7 +65,7 @@ def load_faiss_and_data():
 faiss_index, meddra_terms, term_master_df = load_faiss_and_data()
 
 # -----------------------------
-# ✅ STEP 3: Streamlit UI
+# Streamlit UI
 # -----------------------------
 st.set_page_config(page_title="MedDRA検索システム", layout="wide")
 st.title("🩺 MedDRA検索システム（プロトタイプUI）")
@@ -84,6 +103,5 @@ if st.button("🔍 検索実行") and user_input:
 
     st.header("4. 出力と検索履歴")
     st.download_button("💾 結果をCSVでダウンロード", merged_df.to_csv(index=False).encode("utf-8"), file_name="meddra_results.csv", mime="text/csv")
-
 else:
     st.info("上のテキスト欄に入力し、[検索実行]を押してください。")

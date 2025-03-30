@@ -4,7 +4,8 @@ import pandas as pd
 import numpy as np
 import pickle
 import faiss
-from utils import expand_query_gpt, encode_query, rerank_results_v13
+# ✅ 明示的に .py をつけてモジュール解釈を安定させる場合もある
+from utils import expand_query_gpt, encode_query, rerank_results_v13  # utils.py は同階層
 import os
 
 @st.cache_resource

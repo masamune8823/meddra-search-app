@@ -22,19 +22,19 @@ def restore_split_file(output_path, parts, folder="."):
 def restore_search_assets():
     zip_path = "search_assets.zip"
     parts = ["a", "b", "c", "d"]
-    restore_split_file(zip_path, parts)
+    restore_split_file(zip_path, parts, folder=".")
     with zipfile.ZipFile(zip_path, 'r') as zip_ref:
         zip_ref.extractall("data")
 
 def restore_embeddings():
     output_path = "meddra_embeddings.npy"
     parts = ["a", "b"]
-    restore_split_file(output_path, parts)
+    restore_split_file(output_path, parts, folder=".")
 
 def restore_faiss_index_zip():
     zip_path = "faiss_index.zip"
     parts = ["a", "b"]
-    restore_split_file(zip_path, parts)
+    restore_split_file(zip_path, parts, folder=".")
     with zipfile.ZipFile(zip_path, 'r') as zip_ref:
         zip_ref.extractall("data")
 

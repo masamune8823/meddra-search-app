@@ -7,36 +7,46 @@ import pickle
 import faiss
 from utils import expand_query_gpt, encode_query, rerank_results_v13
 
-# 🔧 分割ファイルを結合する関数（ファイル名に _part_a などが付く）
+# -----------------------------
+# 分割ファイルの結合用関数（修正版）
+# -----------------------------
 def restore_split_file(output_path, parts, folder="."):
+    base_name = os.path.splitext(output_path)[0]  # 例: "search_assets"
     with open(output_path, "wb") as outfile:
         for part in parts:
-            part_path = os.path.join(folder, f"{output_path}_part_{part}")
+            part_path = os.path.join(folder, f"{base_name}_part_{part}")
             if os.path.exists(part_path):
                 with open(part_path, "rb") as infile:
                     outfile.write(infile.read())
             else:
                 raise FileNotFoundError(f"{part_path} が見つかりません")
 
-# 🔧 search_assets.zip を復元し、中身を展開
+# -----------------------------
+# search_assets.zip の復元と展開
+# -----------------------------
 def restore_search_assets():
     zip_path = "search_assets.zip"
     parts = ["a", "b", "c", "d"]
     restore_split_file(zip_path, parts, folder=".")
-    with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-        zip_ref.extractall("data")  # カレントディレクトリに data/ 展開
 
-# 🔧 meddra_embeddings.npy を復元（展開不要）
+    with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+        zip_ref.extractall("data")  # GitHubリポジトリ内の"data"ディレクトリに展開
+
+# -----------------------------
+# meddra_embeddings.npy の復元（解凍不要）
+# -----------------------------
 def restore_embeddings():
     output_path = "meddra_embeddings.npy"
     parts = ["a", "b"]
     restore_split_file(output_path, parts, folder=".")
 
-# 🔃 分割ファイルを復元
+# 呼び出し
 restore_search_assets()
 restore_embeddings()
 
-# ✅ FAISSなどの読み込み
+# -----------------------------
+# FAISSデータとマスタの読み込み
+# -----------------------------
 @st.cache_resource
 def load_faiss_and_data():
     index = faiss.read_index("data/faiss_index.index")
@@ -49,7 +59,9 @@ def load_faiss_and_data():
 
 faiss_index, meddra_terms, term_master_df = load_faiss_and_data()
 
-# ✅ Streamlit UI
+# -----------------------------
+# Streamlit アプリ本体
+# -----------------------------
 st.set_page_config(page_title="MedDRA検索システム", layout="wide")
 st.title("🩺 MedDRA検索システム（プロトタイプUI）")
 

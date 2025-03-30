@@ -7,9 +7,9 @@ import pickle
 import faiss
 from utils import expand_query_gpt, encode_query, rerank_results_v13
 
-# 汎用：分割ファイルの結合
+
 def restore_split_file(output_path, parts, folder="."):
-    with open(output_path, "wb") as outfile:
+    with open(os.path.join(folder, output_path), "wb") as outfile:
         for part in parts:
             part_path = os.path.join(folder, f"{output_path}_part_{part}")
             if os.path.exists(part_path):
@@ -18,36 +18,31 @@ def restore_split_file(output_path, parts, folder="."):
             else:
                 raise FileNotFoundError(f"{part_path} が見つかりません")
 
-# 1. search_assets.zip の復元と展開
 def restore_search_assets():
     zip_name = "search_assets"
     parts = ["a", "b", "c", "d"]
-    restore_split_file(zip_name, parts, folder=".")
+    restore_split_file(zip_name + ".zip", parts, folder=".")
+
     with zipfile.ZipFile(f"{zip_name}.zip", 'r') as zip_ref:
         zip_ref.extractall("data")
 
-# 2. meddra_embeddings.npy の復元（解凍不要）
 def restore_embeddings():
     output_path = "meddra_embeddings.npy"
     parts = ["a", "b"]
     restore_split_file(output_path, parts, folder=".")
 
-# 3. faiss_index.index の復元（zip展開）
 def restore_faiss_index_zip():
-    zip_name = "faiss_index"
+    zip_path = "faiss_index.zip"
     parts = ["a", "b"]
-    restore_split_file(zip_name, parts, folder=".")
-    with zipfile.ZipFile(f"{zip_name}.zip", 'r') as zip_ref:
+    restore_split_file(zip_path, parts, folder=".")
+
+    with zipfile.ZipFile(zip_path, 'r') as zip_ref:
         zip_ref.extractall("data")
 
-# ✅ ファイル復元の実行
+# --- データ復元 ---
 restore_search_assets()
 restore_embeddings()
 restore_faiss_index_zip()
-
-# =============================
-# Streamlit UI 本体
-# =============================
 
 @st.cache_resource
 def load_faiss_and_data():
@@ -61,6 +56,7 @@ def load_faiss_and_data():
 
 faiss_index, meddra_terms, term_master_df = load_faiss_and_data()
 
+# --- Streamlit UI ---
 st.set_page_config(page_title="MedDRA検索システム", layout="wide")
 st.title("🩺 MedDRA検索システム（プロトタイプUI）")
 
@@ -85,6 +81,7 @@ if st.button("🔍 検索実行") and user_input:
             all_results.append(result)
 
     reranked = rerank_results_v13(user_input, all_results)
+
     results_df = pd.DataFrame(reranked)
     merged_df = pd.merge(results_df, term_master_df, how="left", left_on="term", right_on="PT_English")
     merged_df = merged_df[["score", "term", "PT_Japanese", "HLT_Japanese", "HLGT_Japanese", "SOC_Japanese"]].copy()

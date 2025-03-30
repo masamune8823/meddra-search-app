@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 import pickle
 import faiss
-from utils import expand_query_gpt, encode_query, rerank_results_v13  # 追加が必要
+from utils import expand_query_gpt, encode_query, rerank_results_v13
 import os
 
 @st.cache_resource

@@ -7,50 +7,52 @@ import pickle
 import faiss
 from utils import expand_query_gpt, encode_query, rerank_results_v13
 
-# ✅ 分割ファイルから元ファイルを復元
+# 🔧 分割ファイルの復元用ユーティリティ関数
+
 def restore_split_file(output_path, parts, folder="."):
-    with open(output_path, "wb") as outfile:
+    with open(os.path.join(folder, output_path), "wb") as outfile:
         for part in parts:
             part_path = os.path.join(folder, f"{output_path}_part_{part}")
             if os.path.exists(part_path):
                 with open(part_path, "rb") as infile:
                     outfile.write(infile.read())
             else:
-                raise FileNotFoundError(f"❌ {part_path} が見つかりません")
+                raise FileNotFoundError(f"{part_path} が見つかりません")
 
-# ✅ 1. search_assets.zip の復元と展開
+# 1. search_assets.zip の復元と展開
+
 def restore_search_assets():
     zip_path = "search_assets.zip"
     parts = ["a", "b", "c", "d"]
     restore_split_file(zip_path, parts, folder=".")
+
     with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-        zip_ref.extractall("/mnt/data")  # ✅ 安定して使えるパスへ展開
+        zip_ref.extractall("data")  # カレントディレクトリ内の "data" フォルダ
 
-# ✅ 2. meddra_embeddings.npy の復元
+# 2. meddra_embeddings.npy の復元（解凍不要）
+
 def restore_embeddings():
-    npy_path = "meddra_embeddings.npy"
+    output_path = "meddra_embeddings.npy"
     parts = ["a", "b"]
-    restore_split_file(npy_path, parts, folder=".")
-    os.rename(npy_path, "/mnt/data/meddra_embeddings.npy")  # ✅ 所定の場所に移動
+    restore_split_file(output_path, parts, folder=".")
+    os.rename(output_path, "data/meddra_embeddings.npy")
 
-# ✅ 呼び出し（Streamlit起動時に一度だけ）
+# 呼び出し
 restore_search_assets()
 restore_embeddings()
 
 @st.cache_resource
 def load_faiss_and_data():
-    index = faiss.read_index("/mnt/data/faiss_index.index")
-    embeddings = np.load("/mnt/data/meddra_embeddings.npy")
-    with open("/mnt/data/meddra_terms.npy", "rb") as f:
+    index = faiss.read_index("data/faiss_index.index")
+    embeddings = np.load("data/meddra_embeddings.npy")
+    with open("data/meddra_terms.npy", "rb") as f:
         terms = np.load(f, allow_pickle=True)
-    with open("/mnt/data/term_master_df.pkl", "rb") as f:
+    with open("data/term_master_df.pkl", "rb") as f:
         master_df = pickle.load(f)
     return index, terms, master_df
 
-# ✅ 初期化
 faiss_index, meddra_terms, term_master_df = load_faiss_and_data()
 
-# --- Streamlit UI ---
 st.set_page_config(page_title="MedDRA検索システム", layout="wide")
 st.title("🩺 MedDRA検索システム（プロトタイプUI）")
 

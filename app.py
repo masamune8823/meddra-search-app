@@ -14,7 +14,7 @@ def restore_split_file(output_path, parts):
 # 1. search_assets.zip の復元と展開
 def restore_search_assets():
     zip_path = "search_assets.zip"
-    parts = ["aa", "ab", "ac"]
+    parts = ["a", "b", "c","d"]
     restore_split_file(zip_path, parts)
 
     with zipfile.ZipFile(zip_path, 'r') as zip_ref:
@@ -24,7 +24,7 @@ def restore_search_assets():
 # 2. meddra_embeddings.npy の復元（解凍不要）
 def restore_embeddings():
     output_path = "meddra_embeddings.npy"
-    parts = ["aa", "ab"]
+    parts = ["a", "b"]
     restore_split_file(output_path, parts)
 
 # 呼び出し

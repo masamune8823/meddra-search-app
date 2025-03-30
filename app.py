@@ -7,39 +7,36 @@ import pickle
 import faiss
 from utils import expand_query_gpt, encode_query, rerank_results_v13
 
-# 分割ファイルを結合して元のファイルを復元する関数
+# 🔧 分割ファイルを結合する関数（ファイル名に _part_a などが付く）
 def restore_split_file(output_path, parts, folder="."):
-    with open(os.path.join(folder, output_path), "wb") as outfile:
+    with open(output_path, "wb") as outfile:
         for part in parts:
-            part_path = os.path.join(folder, f"{output_path}_{part}")
+            part_path = os.path.join(folder, f"{output_path}_part_{part}")
             if os.path.exists(part_path):
                 with open(part_path, "rb") as infile:
                     outfile.write(infile.read())
             else:
                 raise FileNotFoundError(f"{part_path} が見つかりません")
 
-# 1. search_assets.zip の復元と展開
+# 🔧 search_assets.zip を復元し、中身を展開
 def restore_search_assets():
     zip_path = "search_assets.zip"
-    parts = ["part_a", "part_b", "part_c", "part_d"]
+    parts = ["a", "b", "c", "d"]
     restore_split_file(zip_path, parts, folder=".")
     with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-        zip_ref.extractall("data")
+        zip_ref.extractall("data")  # カレントディレクトリに data/ 展開
 
-# 2. meddra_embeddings.npy の復元（解凍不要）
+# 🔧 meddra_embeddings.npy を復元（展開不要）
 def restore_embeddings():
     output_path = "meddra_embeddings.npy"
-    parts = ["part_a", "part_b"]
+    parts = ["a", "b"]
     restore_split_file(output_path, parts, folder=".")
 
-# 呼び出し
+# 🔃 分割ファイルを復元
 restore_search_assets()
 restore_embeddings()
 
-# Streamlit アプリ本体
-st.set_page_config(page_title="MedDRA検索システム", layout="wide")
-st.title("🩺 MedDRA検索システム（プロトタイプUI）")
-
+# ✅ FAISSなどの読み込み
 @st.cache_resource
 def load_faiss_and_data():
     index = faiss.read_index("data/faiss_index.index")
@@ -51,6 +48,10 @@ def load_faiss_and_data():
     return index, terms, master_df
 
 faiss_index, meddra_terms, term_master_df = load_faiss_and_data()
+
+# ✅ Streamlit UI
+st.set_page_config(page_title="MedDRA検索システム", layout="wide")
+st.title("🩺 MedDRA検索システム（プロトタイプUI）")
 
 st.header("1. 医師記載用語の入力")
 user_input = st.text_area("自然言語で記載された症状や出来事を入力してください：", height=100)
@@ -73,6 +74,7 @@ if st.button("🔍 検索実行") and user_input:
             all_results.append(result)
 
     reranked = rerank_results_v13(user_input, all_results)
+
     results_df = pd.DataFrame(reranked)
     merged_df = pd.merge(results_df, term_master_df, how="left", left_on="term", right_on="PT_English")
     merged_df = merged_df[["score", "term", "PT_Japanese", "HLT_Japanese", "HLGT_Japanese", "SOC_Japanese"]].copy()

@@ -7,22 +7,18 @@ import pickle
 import faiss
 from utils import expand_query_gpt, encode_query, rerank_results_v13
 
-# -----------------------------
-# 分割ファイルの復元ユーティリティ
-# -----------------------------
+
 def restore_split_file(output_path, parts, folder="."):
     with open(os.path.join(folder, output_path), "wb") as outfile:
         for part in parts:
-            part_path = os.path.join(folder, f"{output_path}_part_{part}")
+            part_path = os.path.join(folder, f"{output_path}.part_{part}")
             if os.path.exists(part_path):
                 with open(part_path, "rb") as infile:
                     outfile.write(infile.read())
             else:
                 raise FileNotFoundError(f"{part_path} が見つかりません")
 
-# -----------------------------
-# 各種 zip / npy 復元ステップ
-# -----------------------------
+
 def restore_search_assets():
     zip_path = "search_assets.zip"
     parts = ["a", "b", "c", "d"]
@@ -30,10 +26,12 @@ def restore_search_assets():
     with zipfile.ZipFile(zip_path, 'r') as zip_ref:
         zip_ref.extractall("data")
 
+
 def restore_embeddings():
     output_path = "meddra_embeddings.npy"
     parts = ["a", "b"]
-    restore_split_file(output_path, parts, folder="data")
+    restore_split_file(output_path, parts, folder=".")
+
 
 def restore_faiss_index_zip():
     zip_path = "faiss_index.zip"
@@ -42,16 +40,13 @@ def restore_faiss_index_zip():
     with zipfile.ZipFile(zip_path, 'r') as zip_ref:
         zip_ref.extractall("data")
 
-# -----------------------------
-# 呼び出し（Streamlit 実行前に1回）
-# -----------------------------
+
+# 🔁 各ファイルの復元
 restore_search_assets()
 restore_embeddings()
 restore_faiss_index_zip()
 
-# -----------------------------
-# データ読み込み
-# -----------------------------
+
 @st.cache_resource
 def load_faiss_and_data():
     index = faiss.read_index("data/faiss_index.index")
@@ -62,11 +57,9 @@ def load_faiss_and_data():
         master_df = pickle.load(f)
     return index, terms, master_df
 
+
 faiss_index, meddra_terms, term_master_df = load_faiss_and_data()
 
-# -----------------------------
-# Streamlit UI
-# -----------------------------
 st.set_page_config(page_title="MedDRA検索システム", layout="wide")
 st.title("🩺 MedDRA検索システム（プロトタイプUI）")
 

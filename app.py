@@ -1,51 +1,37 @@
 import os
 import zipfile
 import streamlit as st
-import pandas as pd
 import numpy as np
+import pandas as pd
 import pickle
 import faiss
 from utils import expand_query_gpt, encode_query, rerank_results_v13
 
 # -----------------------------
-# 分割ファイルの結合用関数（修正版）
+# ✅ STEP 1: faiss_index の復元
 # -----------------------------
 def restore_split_file(output_path, parts, folder="."):
-    base_name = os.path.splitext(output_path)[0]  # 例: "search_assets"
     with open(output_path, "wb") as outfile:
         for part in parts:
-            part_path = os.path.join(folder, f"{base_name}_part_{part}")
+            part_path = os.path.join(folder, f"faiss_index_part_{part}")
             if os.path.exists(part_path):
                 with open(part_path, "rb") as infile:
                     outfile.write(infile.read())
             else:
                 raise FileNotFoundError(f"{part_path} が見つかりません")
 
-# -----------------------------
-# search_assets.zip の復元と展開
-# -----------------------------
-def restore_search_assets():
-    zip_path = "search_assets.zip"
-    parts = ["a", "b", "c", "d"]
-    restore_split_file(zip_path, parts, folder=".")
-
+def restore_faiss_index_zip():
+    zip_path = "faiss_index.zip"
+    restore_split_file(zip_path, ["a", "b"])  # 分割数に応じて拡張可能
     with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-        zip_ref.extractall("data")  # GitHubリポジトリ内の"data"ディレクトリに展開
+        os.makedirs("data", exist_ok=True)
+        zip_ref.extractall("data")
+
+# ✅ 呼び出し
+restore_faiss_index_zip()
 
 # -----------------------------
-# meddra_embeddings.npy の復元（解凍不要）
-# -----------------------------
-def restore_embeddings():
-    output_path = "meddra_embeddings.npy"
-    parts = ["a", "b"]
-    restore_split_file(output_path, parts, folder=".")
-
-# 呼び出し
-restore_search_assets()
-restore_embeddings()
-
-# -----------------------------
-# FAISSデータとマスタの読み込み
+# ✅ STEP 2: FAISSとデータ読み込み
 # -----------------------------
 @st.cache_resource
 def load_faiss_and_data():
@@ -60,7 +46,7 @@ def load_faiss_and_data():
 faiss_index, meddra_terms, term_master_df = load_faiss_and_data()
 
 # -----------------------------
-# Streamlit アプリ本体
+# ✅ STEP 3: Streamlit UI
 # -----------------------------
 st.set_page_config(page_title="MedDRA検索システム", layout="wide")
 st.title("🩺 MedDRA検索システム（プロトタイプUI）")
@@ -86,7 +72,6 @@ if st.button("🔍 検索実行") and user_input:
             all_results.append(result)
 
     reranked = rerank_results_v13(user_input, all_results)
-
     results_df = pd.DataFrame(reranked)
     merged_df = pd.merge(results_df, term_master_df, how="left", left_on="term", right_on="PT_English")
     merged_df = merged_df[["score", "term", "PT_Japanese", "HLT_Japanese", "HLGT_Japanese", "SOC_Japanese"]].copy()

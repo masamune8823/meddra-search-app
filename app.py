@@ -5,11 +5,9 @@ import pandas as pd
 import numpy as np
 import pickle
 import faiss
-
 from utils import expand_query_gpt, encode_query, rerank_results_v13
 
-
-# 🔧 分割ファイルを結合する関数（フォルダ指定可）
+# ---------- 分割ファイルの復元ユーティリティ ----------
 def restore_split_file(output_path, parts, folder="."):
     with open(output_path, "wb") as outfile:
         for part in parts:
@@ -20,8 +18,7 @@ def restore_split_file(output_path, parts, folder="."):
             else:
                 raise FileNotFoundError(f"{part_path} が見つかりません")
 
-
-# ✅ search_assets.zip の復元と展開
+# ---------- 各種ファイルの復元 ----------
 def restore_search_assets():
     zip_name = "search_assets"
     parts = ["a", "b", "c", "d"]
@@ -29,15 +26,11 @@ def restore_search_assets():
     with zipfile.ZipFile(f"{zip_name}.zip", 'r') as zip_ref:
         zip_ref.extractall("data")
 
-
-# ✅ meddra_embeddings.npy の復元（解凍不要）
 def restore_embeddings():
     output_path = "meddra_embeddings.npy"
     parts = ["a", "b"]
     restore_split_file(output_path, parts, folder=".")
 
-
-# ✅ faiss_index.zip の復元と展開
 def restore_faiss_index_zip():
     zip_name = "faiss_index"
     parts = ["a", "b"]
@@ -45,8 +38,12 @@ def restore_faiss_index_zip():
     with zipfile.ZipFile(f"{zip_name}.zip", 'r') as zip_ref:
         zip_ref.extractall("data")
 
+# ---------- ファイル復元の実行 ----------
+restore_search_assets()
+restore_embeddings()
+restore_faiss_index_zip()
 
-# ✅ データとFAISSの読み込み
+# ---------- FAISS・埋め込み・階層マスタの読み込み ----------
 @st.cache_resource
 def load_faiss_and_data():
     index = faiss.read_index("data/faiss_index.index")
@@ -57,18 +54,9 @@ def load_faiss_and_data():
         master_df = pickle.load(f)
     return index, terms, master_df
 
-
-# ✅ 復元を最初に実行
-restore_search_assets()
-restore_embeddings()
-restore_faiss_index_zip()
-
-# ✅ FAISSと用語データの読み込み
 faiss_index, meddra_terms, term_master_df = load_faiss_and_data()
 
-
-# ============ Streamlit UI ============
-
+# ---------- Streamlit UI ----------
 st.set_page_config(page_title="MedDRA検索システム", layout="wide")
 st.title("🩺 MedDRA検索システム（プロトタイプUI）")
 

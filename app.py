@@ -1,3 +1,35 @@
+import os
+import zipfile
+
+def restore_split_file(output_path, parts):
+    with open(output_path, "wb") as outfile:
+        for part in parts:
+            part_path = f"{output_path}_part_{part}"
+            if os.path.exists(part_path):
+                with open(part_path, "rb") as infile:
+                    outfile.write(infile.read())
+            else:
+                raise FileNotFoundError(f"{part_path} が見つかりません")
+
+# 1. search_assets.zip の復元と展開
+def restore_search_assets():
+    zip_path = "search_assets.zip"
+    parts = ["aa", "ab", "ac"]
+    restore_split_file(zip_path, parts)
+
+    with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+        zip_ref.extractall("/mnt/data")  # FAISSなどの中身を展開
+
+# 2. meddra_embeddings.npy の復元（解凍不要）
+def restore_embeddings():
+    output_path = "meddra_embeddings.npy"
+    parts = ["aa", "ab"]
+    restore_split_file(output_path, parts)
+
+# 呼び出し
+restore_search_assets()
+restore_embeddings()
+
 
 import streamlit as st
 import pandas as pd

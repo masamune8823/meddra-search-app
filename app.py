@@ -1,10 +1,13 @@
 import streamlit as st
 import os
 import zipfile
-from utils import search_meddra  # 検索関数（別ファイル）
 import pickle
+import numpy as np
+import pandas as pd
+from utils import search_meddra  # 検索関数は utils.py に定義
 
-def restore_split_file(zip_base_name, parts, folder="."):
+# ✅ ZIP展開が必要なファイル（faiss_index, search_assets）
+def restore_zip_file(zip_base_name, parts, folder="."):
     zip_path = os.path.join(folder, f"{zip_base_name}.zip")
     with open(zip_path, "wb") as output:
         for part in parts:
@@ -17,10 +20,22 @@ def restore_split_file(zip_base_name, parts, folder="."):
         zip_ref.extractall(folder)
     os.remove(zip_path)
 
+# ✅ バイナリ（npyなど）ファイルの単純結合（zip展開なし）
+def restore_binary_file(output_name, parts, folder="."):
+    output_path = os.path.join(folder, output_name)
+    with open(output_path, "wb") as output:
+        for part in parts:
+            part_path = os.path.join(folder, part)
+            if not os.path.exists(part_path):
+                raise FileNotFoundError(f"{part_path} が見つかりません")
+            with open(part_path, "rb") as input_file:
+                output.write(input_file.read())
+
+# ✅ 必要なすべての復元処理を実行
 def restore_search_assets():
-    restore_split_file("faiss_index", ["part_a", "part_b"])
-    restore_split_file("meddra_embeddings", ["part_a", "part_b"])
-    restore_split_file("search_assets", ["part_a", "part_b", "part_c", "part_d"])
+    restore_zip_file("faiss_index", ["part_a", "part_b"])
+    restore_zip_file("search_assets", ["part_a", "part_b", "part_c", "part_d"])
+    restore_binary_file("meddra_embeddings.npy", ["meddra_embeddings_part_a", "meddra_embeddings_part_b"])
 
 # ✅ 最初に検索用データを復元
 restore_search_assets()

@@ -7,51 +7,50 @@ import pickle
 import faiss
 from utils import expand_query_gpt, encode_query, rerank_results_v13
 
-# 分割ファイルの復元
+# 分割ファイルを結合して元のファイルを復元する関数
 def restore_split_file(output_path, parts, folder="."):
     with open(os.path.join(folder, output_path), "wb") as outfile:
         for part in parts:
-            part_path = os.path.join(folder, f"{output_path}_part_{part}")
+            part_path = os.path.join(folder, f"{output_path}_{part}")
             if os.path.exists(part_path):
                 with open(part_path, "rb") as infile:
                     outfile.write(infile.read())
             else:
                 raise FileNotFoundError(f"{part_path} が見つかりません")
 
-# search_assets.zip の復元と展開
+# 1. search_assets.zip の復元と展開
 def restore_search_assets():
     zip_path = "search_assets.zip"
-    parts = ["a", "b", "c", "d"]
+    parts = ["part_a", "part_b", "part_c", "part_d"]
     restore_split_file(zip_path, parts, folder=".")
     with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-        zip_ref.extractall(".")  # ZIP内のファイルを現在のフォルダへ展開
+        zip_ref.extractall("data")
 
-# meddra_embeddings.npy の復元
+# 2. meddra_embeddings.npy の復元（解凍不要）
 def restore_embeddings():
     output_path = "meddra_embeddings.npy"
-    parts = ["a", "b"]
+    parts = ["part_a", "part_b"]
     restore_split_file(output_path, parts, folder=".")
 
 # 呼び出し
 restore_search_assets()
 restore_embeddings()
 
-# データとFAISSの読み込み（全てルート直下）
+# Streamlit アプリ本体
+st.set_page_config(page_title="MedDRA検索システム", layout="wide")
+st.title("🩺 MedDRA検索システム（プロトタイプUI）")
+
 @st.cache_resource
 def load_faiss_and_data():
-    index = faiss.read_index("faiss_index.index")
-    embeddings = np.load("meddra_embeddings.npy")
-    with open("meddra_terms.npy", "rb") as f:
+    index = faiss.read_index("data/faiss_index.index")
+    embeddings = np.load("data/meddra_embeddings.npy")
+    with open("data/meddra_terms.npy", "rb") as f:
         terms = np.load(f, allow_pickle=True)
-    with open("term_master_df.pkl", "rb") as f:
+    with open("data/term_master_df.pkl", "rb") as f:
         master_df = pickle.load(f)
     return index, terms, master_df
 
 faiss_index, meddra_terms, term_master_df = load_faiss_and_data()
-
-# Streamlit UI
-st.set_page_config(page_title="MedDRA検索システム", layout="wide")
-st.title("🩺 MedDRA検索システム（プロトタイプUI）")
 
 st.header("1. 医師記載用語の入力")
 user_input = st.text_area("自然言語で記載された症状や出来事を入力してください：", height=100)
@@ -74,7 +73,6 @@ if st.button("🔍 検索実行") and user_input:
             all_results.append(result)
 
     reranked = rerank_results_v13(user_input, all_results)
-
     results_df = pd.DataFrame(reranked)
     merged_df = pd.merge(results_df, term_master_df, how="left", left_on="term", right_on="PT_English")
     merged_df = merged_df[["score", "term", "PT_Japanese", "HLT_Japanese", "HLGT_Japanese", "SOC_Japanese"]].copy()
@@ -87,5 +85,6 @@ if st.button("🔍 検索実行") and user_input:
 
     st.header("4. 出力と検索履歴")
     st.download_button("💾 結果をCSVでダウンロード", merged_df.to_csv(index=False).encode("utf-8"), file_name="meddra_results.csv", mime="text/csv")
+
 else:
     st.info("上のテキスト欄に入力し、[検索実行]を押してください。")

@@ -7,9 +7,10 @@ import pickle
 import faiss
 from utils import expand_query_gpt, encode_query, rerank_results_v13
 
-
+# --- 分割ファイルの復元ユーティリティ ---
 def restore_split_file(output_path, parts, folder="."):
-    with open(f"{output_path}.zip" if output_path.endswith(".zip") else output_path, "wb") as outfile:
+    full_output_path = os.path.join(folder, output_path)
+    with open(full_output_path, "wb") as outfile:
         for part in parts:
             part_path = os.path.join(folder, f"{output_path}_part_{part}")
             if os.path.exists(part_path):
@@ -18,35 +19,34 @@ def restore_split_file(output_path, parts, folder="."):
             else:
                 raise FileNotFoundError(f"{part_path} が見つかりません")
 
-
+# --- search_assets.zip の復元と展開 ---
 def restore_search_assets():
-    zip_path = "search_assets"  # 拡張子なし！
+    zip_name = "search_assets.zip"
     parts = ["a", "b", "c", "d"]
-    restore_split_file(zip_path, parts, folder=".")
-    with zipfile.ZipFile(f"{zip_path}.zip", 'r') as zip_ref:
+    restore_split_file(zip_name, parts, folder=".")
+    with zipfile.ZipFile(zip_name, 'r') as zip_ref:
         zip_ref.extractall("data")
 
-
+# --- meddra_embeddings.npy の復元 ---
 def restore_embeddings():
     output_path = "meddra_embeddings.npy"
     parts = ["a", "b"]
     restore_split_file(output_path, parts, folder=".")
 
-
+# --- faiss_index.index の復元 ---
 def restore_faiss_index_zip():
-    zip_path = "faiss_index"
+    zip_name = "faiss_index.zip"
     parts = ["a", "b"]
-    restore_split_file(zip_path, parts, folder=".")
-    with zipfile.ZipFile(f"{zip_path}.zip", 'r') as zip_ref:
+    restore_split_file(zip_name, parts, folder=".")
+    with zipfile.ZipFile(zip_name, 'r') as zip_ref:
         zip_ref.extractall("data")
 
-
-# 呼び出し順序
+# --- 呼び出し ---
 restore_search_assets()
 restore_embeddings()
 restore_faiss_index_zip()
 
-
+# --- FAISS・用語データの読み込み ---
 @st.cache_resource
 def load_faiss_and_data():
     index = faiss.read_index("data/faiss_index.index")
@@ -57,13 +57,13 @@ def load_faiss_and_data():
         master_df = pickle.load(f)
     return index, terms, master_df
 
-
 faiss_index, meddra_terms, term_master_df = load_faiss_and_data()
 
+# --- Streamlit UI ---
 st.set_page_config(page_title="MedDRA検索システム", layout="wide")
-st.title("🦧 MedDRA検索システム（プロトタイプUI）")
+st.title("🩺 MedDRA検索システム（プロトタイプUI）")
 
-st.header("1. 医師記載用言語の入力")
+st.header("1. 医師記載用語の入力")
 user_input = st.text_area("自然言語で記載された症状や出来事を入力してください：", height=100)
 
 if st.button("🔍 検索実行") and user_input:
@@ -84,6 +84,7 @@ if st.button("🔍 検索実行") and user_input:
             all_results.append(result)
 
     reranked = rerank_results_v13(user_input, all_results)
+
     results_df = pd.DataFrame(reranked)
     merged_df = pd.merge(results_df, term_master_df, how="left", left_on="term", right_on="PT_English")
     merged_df = merged_df[["score", "term", "PT_Japanese", "HLT_Japanese", "HLGT_Japanese", "SOC_Japanese"]].copy()
@@ -95,7 +96,6 @@ if st.button("🔍 検索実行") and user_input:
     st.dataframe(merged_df.head(10), use_container_width=True)
 
     st.header("4. 出力と検索履歴")
-    st.download_button("📀 結果をCSVでダウンロード", merged_df.to_csv(index=False).encode("utf-8"), file_name="meddra_results.csv", mime="text/csv")
-
+    st.download_button("💾 結果をCSVでダウンロード", merged_df.to_csv(index=False).encode("utf-8"), file_name="meddra_results.csv", mime="text/csv")
 else:
     st.info("上のテキスト欄に入力し、[検索実行]を押してください。")

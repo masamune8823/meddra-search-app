@@ -7,7 +7,7 @@ import numpy as np
 import faiss
 import os
 import zipfile
-
+　
 from helper_functions import (
     expand_query_gpt,
     encode_query,

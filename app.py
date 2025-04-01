@@ -13,7 +13,7 @@ from helper_functions import (
     encode_query,
     rerank_results_v13,
     match_synonyms,
-    merge_faiss_and_synonym_results
+    merge_faiss_and_synonym_results,
 )
 
 # 分割ファイルを結合して保存する関数

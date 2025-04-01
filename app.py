@@ -1,46 +1,29 @@
-# app.py（シノニム統合版）
-
 import streamlit as st
 import pandas as pd
 import pickle
-import io
-from helper_functions import expand_query_gpt, encode_query, rerank_results_v13, match_synonyms, merge_faiss_and_synonym_results
 import numpy as np
 import faiss
 import os
+from helper_functions import expand_query_gpt, encode_query, rerank_results_v13, match_synonyms, merge_faiss_and_synonym_results
 
+# zipファイルからの展開（streamlit_app_bundle.zip）
+if os.path.exists("streamlit_app_bundle.zip"):
+    st.write("📦 ZIPファイルを展開中...")
+    unzip_log = os.popen("unzip -o streamlit_app_bundle.zip").read()
+    st.text(unzip_log)
+
+# ファイル存在確認
+st.write("📁 カレントディレクトリ:", os.getcwd())
+st.write("📄 ファイル一覧:", os.listdir())
+
+# データ読み込み関数
 @st.cache_resource
-def load_faiss_index():
-    with open("search_assets_part_a", "rb") as f:
-        part_a = f.read()
-    with open("search_assets_part_b", "rb") as f:
-        part_b = f.read()
-    with open("search_assets_part_c", "rb") as f:
-        part_c = f.read()
-    with open("search_assets_part_d", "rb") as f:
-        part_d = f.read()
-
-    combined = part_a + part_b + part_c + part_d
-    with open("streamlit_app_bundle.zip", "wb") as f:
-        f.write(combined)
-
-    os.system("unzip -o streamlit_app_bundle.zip")
-    index = faiss.read_index("faiss_index.index")
-    return index
-
-@st.cache_data
 def load_data():
-    # 分割済みベクトルファイルを復元
-    with open("meddra_embeddings_part_a", "rb") as f:
-        part_a = f.read()
-    with open("meddra_embeddings_part_b", "rb") as f:
-        part_b = f.read()
-    combined = part_a + part_b
-    embeddings = np.load(io.BytesIO(combined))
+    terms = np.load("meddra_terms.npy", allow_pickle=True)
+    embeddings_part_a = np.load("meddra_embeddings_part_a", allow_pickle=True)
+    embeddings_part_b = np.load("meddra_embeddings_part_b", allow_pickle=True)
+    embeddings = np.concatenate((embeddings_part_a, embeddings_part_b))
 
-    # その他ファイル読み込み
-    with open("meddra_terms.npy", "rb") as f:
-        terms = np.load(f, allow_pickle=True)
     with open("term_master_df.pkl", "rb") as f:
         term_master_df = pickle.load(f)
     with open("synonym_df_cat1.pkl", "rb") as f:
@@ -48,43 +31,48 @@ def load_data():
 
     return terms, embeddings, synonym_df, term_master_df
 
-# Streamlit UI
-st.title("MedDRA検索アプリ")
-st.write("症状や記述を入力してください")
+@st.cache_resource
+def load_faiss_index():
+    return faiss.read_index("faiss_index.index")
 
-user_query = st.text_input("症状入力", "頭痛")
+# UI
+st.title("💊 MedDRA検索アプリ")
+st.write("症状や記述を入力してください")
+user_input = st.text_input("症状入力", "頭痛")
 
 if st.button("検索"):
-    index = load_faiss_index()
-    terms, embeddings, synonym_df, term_master_df = load_data()
-
     with st.spinner("検索中..."):
-        # クエリ拡張
-        expanded_queries = expand_query_gpt(user_query)
+        try:
+            # データの読み込み
+            terms, embeddings, synonym_df, term_master_df = load_data()
+            index = load_faiss_index()
 
-        # FAISS検索
-        faiss_results = []
-        for q in expanded_queries:
-            query_vec = encode_query(q)
-            D, I = index.search(np.array([query_vec]), k=20)
-            for dist, idx in zip(D[0], I[0]):
-                faiss_results.append({
-                    "term": terms[idx],
-                    "score": 10 - dist  # 疑似スコア（近いほど高スコア）
-                })
+            # クエリ拡張（GPT）
+            expanded_queries = expand_query_gpt(user_input)
 
-        # シノニムマッチ
-        synonym_matches = match_synonyms(user_query, synonym_df)
+            # 各クエリをエンコードしてFAISS検索
+            all_results = []
+            for q in expanded_queries:
+                query_vec = encode_query(q)
+                D, I = index.search(np.array([query_vec]), k=10)
+                for score, idx in zip(D[0], I[0]):
+                    all_results.append({
+                        "term": terms[idx],
+                        "score": float(score),
+                        "source": f"FAISS ({q})"
+                    })
 
-        # 結果統合
-        merged_results = merge_faiss_and_synonym_results(faiss_results, synonym_matches)
+            # シノニム辞書とのマッチ
+            synonym_matches = match_synonyms(user_input, synonym_df)
+            all_results.extend(synonym_matches)
 
-        # 再ランキング
-        reranked = rerank_results_v13(merged_results)
+            # 再スコアリング
+            final_results = rerank_results_v13(all_results)
 
-        # 表示用にPT階層情報を付加
-        result_df = pd.DataFrame(reranked)
-        result_df = result_df.merge(term_master_df, how="left", left_on="term", right_on="PT_English")
+            # 結果の統合・整形
+            merged = merge_faiss_and_synonym_results(final_results, term_master_df)
+            st.success("検索完了！")
+            st.dataframe(merged)
 
-        st.success("検索完了")
-        st.dataframe(result_df[["term", "score", "PT_Japanese", "HLT_Japanese", "HLGT_Japanese", "SOC_Japanese"]])
+        except Exception as e:
+            st.error(f"エラーが発生しました: {str(e)}")

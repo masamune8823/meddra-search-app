@@ -8,13 +8,7 @@ import faiss
 import os
 import zipfile
 
-from helper_functions import (
-    expand_query_gpt,
-    encode_query,
-    rerank_results_v13,
-    match_synonyms,
-    merge_faiss_and_synonym_results
-)
+from helper_functions import expand_query_gpt, encode_query, rerank_results_v13, match_synonyms, merge_faiss_and_synonym_results
 
 # 分割ファイルを結合して保存する関数
 def combine_parts(part_names, output_path):

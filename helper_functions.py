@@ -1,19 +1,24 @@
+# helper_functions.py
+
 def expand_query_gpt(user_query):
-    # クエリをOpenAIなどで拡張
+    # クエリをOpenAIなどで拡張する（ダミー実装）
     return [user_query, "拡張語1", "拡張語2"]
 
 def encode_query(query):
-    # クエリをエンベディング
-    return [0.1, 0.2, 0.3]  # 例
+    # クエリをベクトル化（仮のベクトル）
+    return [0.1, 0.2, 0.3]
 
 def rerank_results_v13(results):
-    # 再ランキングロジック（仮）
+    # スコアの高い順に並べ替える仮のロジック
     return sorted(results, key=lambda x: x["score"], reverse=True)
 
-def search_meddra(query, term_master_df):
-    # シンプルな部分一致ベースの検索関数
-    query = query.lower()
-    df = term_master_df.copy()
-    df["score"] = df["PT_Japanese"].str.lower().apply(lambda x: 100 if query in x else 0)
-    result_df = df[df["score"] > 0].sort_values(by="score", ascending=False).head(10)
-    return result_df
+def match_synonyms(df, synonym_df):
+    # PT名またはLLT名がシノニム辞書にあるかどうかでフラグを立てる
+    df["matched_synonym"] = df["PT_Japanese"].isin(synonym_df["synonym"])
+    return df
+
+def merge_faiss_and_synonym_results(faiss_df, synonym_df):
+    # FAISS検索結果とシノニムマッチを結合（重複排除の上で結合）
+    combined_df = faiss_df.copy()
+    synonym_only = synonym_df[~synonym_df["PT_Japanese"].isin(faiss_df["PT_Japanese"])]
+    return pd.concat([combined_df, synonym_only], ignore_index=True)

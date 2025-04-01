@@ -1,68 +1,90 @@
 # app.py（シノニム統合版）
+
 import streamlit as st
 import pandas as pd
 import pickle
+import io
 from helper_functions import expand_query_gpt, encode_query, rerank_results_v13, match_synonyms, merge_faiss_and_synonym_results
 import numpy as np
 import faiss
 import os
 
-# --- データロード ---
 @st.cache_resource
 def load_faiss_index():
-    index = faiss.read_index("meddra_index.faiss")
+    with open("search_assets_part_a", "rb") as f:
+        part_a = f.read()
+    with open("search_assets_part_b", "rb") as f:
+        part_b = f.read()
+    with open("search_assets_part_c", "rb") as f:
+        part_c = f.read()
+    with open("search_assets_part_d", "rb") as f:
+        part_d = f.read()
+
+    combined = part_a + part_b + part_c + part_d
+    with open("streamlit_app_bundle.zip", "wb") as f:
+        f.write(combined)
+
+    os.system("unzip -o streamlit_app_bundle.zip")
+    index = faiss.read_index("faiss_index.index")
     return index
 
 @st.cache_data
 def load_data():
-    terms = np.load("meddra_terms.npy", allow_pickle=True)
-    embeddings = np.load("meddra_embeddings.npy")
-    synonym_df = pd.read_pickle("synonym_df_cat1.pkl")  # あらかじめ保存されたシノニム辞書
-    return terms.tolist(), embeddings, synonym_df
+    # 分割済みベクトルファイルを復元
+    with open("meddra_embeddings_part_a", "rb") as f:
+        part_a = f.read()
+    with open("meddra_embeddings_part_b", "rb") as f:
+        part_b = f.read()
+    combined = part_a + part_b
+    embeddings = np.load(io.BytesIO(combined))
 
-# --- FAISS検索 ---
-def search_faiss(query_vec, embeddings, index, top_k=10):
-    D, I = index.search(np.array([query_vec]).astype("float32"), top_k)
-    return I[0]
+    # その他ファイル読み込み
+    with open("meddra_terms.npy", "rb") as f:
+        terms = np.load(f, allow_pickle=True)
+    with open("term_master_df.pkl", "rb") as f:
+        term_master_df = pickle.load(f)
+    with open("synonym_df_cat1.pkl", "rb") as f:
+        synonym_df = pickle.load(f)
 
-# --- メインUI ---
+    return terms, embeddings, synonym_df, term_master_df
+
+# Streamlit UI
 st.title("MedDRA検索アプリ")
 st.write("症状や記述を入力してください")
 
 user_query = st.text_input("症状入力", "頭痛")
 
-if st.button("検索") and user_query:
+if st.button("検索"):
+    index = load_faiss_index()
+    terms, embeddings, synonym_df, term_master_df = load_data()
+
     with st.spinner("検索中..."):
-        # データ読み込み
-        terms, embeddings, synonym_df = load_data()
-        index = load_faiss_index()
-
         # クエリ拡張
-        expanded_terms = expand_query_gpt(user_query)
+        expanded_queries = expand_query_gpt(user_query)
 
-        # 拡張語ごとにFAISS検索
+        # FAISS検索
         faiss_results = []
-        for term in expanded_terms:
-            qvec = encode_query(term)
-            idxs = search_faiss(qvec, embeddings, index, top_k=10)
-            faiss_results.extend([terms[i] for i in idxs])
+        for q in expanded_queries:
+            query_vec = encode_query(q)
+            D, I = index.search(np.array([query_vec]), k=20)
+            for dist, idx in zip(D[0], I[0]):
+                faiss_results.append({
+                    "term": terms[idx],
+                    "score": 10 - dist  # 疑似スコア（近いほど高スコア）
+                })
 
-        # PTコード抽出
-        faiss_pt_codes = list(set([item["pt_code"] for item in faiss_results]))
+        # シノニムマッチ
+        synonym_matches = match_synonyms(user_query, synonym_df)
 
-        # シノニムマッチでPTコード補完
-        merged_pt_codes = merge_faiss_and_synonym_results(faiss_pt_codes, user_query, synonym_df)
-
-        # PTコードに対応する候補を再構成
-        merged_results = [item for item in faiss_results if item["pt_code"] in merged_pt_codes]
+        # 結果統合
+        merged_results = merge_faiss_and_synonym_results(faiss_results, synonym_matches)
 
         # 再ランキング
         reranked = rerank_results_v13(merged_results)
 
-        # 結果表示
-        st.write("### 検索結果：")
-        for item in reranked:
-            st.write(f"{item['pt_code']}. {item['pt_japanese']}")
-            st.write(f"確からしさ: {item['score']}%")
-            st.write(f"HLT: {item['hlt']} | HLGT: {item['hlgt']} | SOC: {item['soc']}")
-            st.markdown("---")
+        # 表示用にPT階層情報を付加
+        result_df = pd.DataFrame(reranked)
+        result_df = result_df.merge(term_master_df, how="left", left_on="term", right_on="PT_English")
+
+        st.success("検索完了")
+        st.dataframe(result_df[["term", "score", "PT_Japanese", "HLT_Japanese", "HLGT_Japanese", "SOC_Japanese"]])

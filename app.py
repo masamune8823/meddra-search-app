@@ -2,7 +2,7 @@
 import streamlit as st
 import pandas as pd
 import pickle
-from utils import expand_query_gpt, encode_query, rerank_results_v13, match_synonyms, merge_faiss_and_synonym_results
+from helper_functions import expand_query_gpt, encode_query, rerank_results_v13, match_synonyms, merge_faiss_and_synonym_results
 import numpy as np
 import faiss
 import os

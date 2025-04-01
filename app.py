@@ -8,7 +8,13 @@ import faiss
 import os
 import zipfile
 
-from helper_functions import expand_query_gpt, encode_query, rerank_results_v13, match_synonyms, merge_faiss_and_synonym_results
+from helper_functions import (
+    expand_query_gpt,
+    encode_query,
+    rerank_results_v13,
+    match_synonyms,
+    merge_faiss_and_synonym_results
+)
 
 # 分割ファイルを結合して保存する関数
 def combine_parts(part_names, output_path):
@@ -51,10 +57,8 @@ def load_data():
 
 # 検索実行関数
 def search_terms(user_input, index, embeddings, terms, synonym_df):
-    # クエリ拡張
     expanded_terms = expand_query_gpt(user_input)
 
-    # 各クエリごとにベクトル検索
     all_results = []
     for term in expanded_terms:
         query_vec = encode_query(term)
@@ -62,17 +66,14 @@ def search_terms(user_input, index, embeddings, terms, synonym_df):
         for dist, idx in zip(D[0], I[0]):
             if idx < len(terms):
                 row = terms.iloc[idx].to_dict()
-                row["score"] = 100 - dist  # 類似度をスコア化
+                row["score"] = 100 - dist
                 row["source"] = f"FAISS:{term}"
                 all_results.append(row)
 
     faiss_df = pd.DataFrame(all_results)
     faiss_df = rerank_results_v13(faiss_df)
 
-    # シノニム検索
     synonym_df_filtered = match_synonyms(user_input, synonym_df)
-
-    # 結合
     final_df = merge_faiss_and_synonym_results(faiss_df, synonym_df_filtered)
 
     return final_df

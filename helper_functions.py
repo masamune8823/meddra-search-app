@@ -1,24 +1,55 @@
 # helper_functions.py
 
+import openai
+import numpy as np
+import pandas as pd
+from sentence_transformers import SentenceTransformer
+
+# モデルとAPIキーの初期化（gpt-3.5-turboとMiniLM）
+import os
+openai.api_key = os.environ.get("OPENAI_API_KEY")
+model = SentenceTransformer('sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2')
+
+# ✅ クエリ拡張（OpenAI GPT）
 def expand_query_gpt(user_query):
-    # クエリをOpenAIなどで拡張する（ダミー実装）
-    return [user_query, "拡張語1", "拡張語2"]
+    try:
+        prompt = f"以下の医療用語に関連する別の表現を3つ挙げてください：{user_query}"
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.3,
+            max_tokens=100
+        )
+        expansions = response["choices"][0]["message"]["content"].strip().split("\n")
+        expansions = [e.replace("・", "").strip(" -0123456789.") for e in expansions if e]
+        return [user_query] + expansions
+    except Exception as e:
+        return [user_query]
 
+# ✅ ベクトル化（MiniLM）
 def encode_query(query):
-    # クエリをベクトル化（仮のベクトル）
-    return [0.1, 0.2, 0.3]
+    embedding = model.encode(query)
+    return np.array(embedding, dtype=np.float32)
 
-def rerank_results_v13(results):
-    # スコアの高い順に並べ替える仮のロジック
-    return sorted(results, key=lambda x: x["score"], reverse=True)
+# ✅ 再ランキング（スコアの高い順）
+def rerank_results_v13(df):
+    if "score" not in df.columns:
+        return df
+    return df.sort_values(by="score", ascending=False).head(10).reset_index(drop=True)
 
-def match_synonyms(df, synonym_df):
-    # PT名またはLLT名がシノニム辞書にあるかどうかでフラグを立てる
-    df["matched_synonym"] = df["PT_Japanese"].isin(synonym_df["synonym"])
-    return df
+# ✅ シノニム辞書とのマッチ
+def match_synonyms(user_query_list, synonym_df):
+    matched_rows = synonym_df[synonym_df["synonym"].isin(user_query_list)].copy()
+    matched_rows["score"] = 100.0
+    matched_rows["source"] = "Synonym"
+    return matched_rows
 
+# ✅ FAISS結果とシノニム結果を統合
 def merge_faiss_and_synonym_results(faiss_df, synonym_df):
-    # FAISS検索結果とシノニムマッチを結合（重複排除の上で結合）
-    combined_df = faiss_df.copy()
-    synonym_only = synonym_df[~synonym_df["PT_Japanese"].isin(faiss_df["PT_Japanese"])]
-    return pd.concat([combined_df, synonym_only], ignore_index=True)
+    if faiss_df is None or faiss_df.empty:
+        return synonym_df
+    if synonym_df is None or synonym_df.empty:
+        return faiss_df
+    merged_df = pd.concat([faiss_df, synonym_df], ignore_index=True)
+    merged_df = merged_df.drop_duplicates(subset=["PT_Japanese", "HLT_Japanese"], keep="first")
+    return merged_df.reset_index(drop=True)

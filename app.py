@@ -1,101 +1,53 @@
+
 # app.py
 import streamlit as st
 import pandas as pd
-import pickle
-import numpy as np
 import os
-import faiss
+
 from helper_functions import (
-    expand_query_gpt,
-    encode_query,
+    search_meddra,
     rerank_results_v13,
-    match_synonyms,
-    merge_faiss_and_synonym_results,
+    add_hierarchy_info,
+    load_term_master_df
 )
 
-# 🔧 FAISS・ベクトル・アセットの復元
-def restore_faiss_index_from_parts():
-    parts = ["faiss_index_part_a", "faiss_index_part_b"]
-    if not os.path.exists("faiss_index.index"):
-        with open("faiss_index.index", "wb") as f_out:
-            for part in parts:
-                with open(part, "rb") as f_in:
-                    f_out.write(f_in.read())
+# ページ設定
+st.set_page_config(page_title="MedDRA検索アプリ", layout="wide")
 
-def restore_meddra_embeddings_from_parts():
-    parts = ["meddra_embeddings_part_a", "meddra_embeddings_part_b"]
-    if not os.path.exists("meddra_embeddings.npy"):
-        with open("meddra_embeddings.npy", "wb") as f_out:
-            for part in parts:
-                with open(part, "rb") as f_in:
-                    f_out.write(f_in.read())
+st.title("💊 MedDRA 自然言語検索システム")
+st.write("自然文から適切なMedDRA PT用語を検索します。")
 
-# 🔁 初期データロード
-@st.cache_resource
-def load_data():
-    restore_faiss_index_from_parts()
-    restore_meddra_embeddings_from_parts()
-    embeddings = np.load("meddra_embeddings.npy")
-    with open("meddra_terms.npy", "rb") as f:
-        terms = np.load(f, allow_pickle=True)
-    with open("term_master_df.pkl", "rb") as f:
-        term_master_df = pickle.load(f)
-    with open("synonym_df_cat1.pkl", "rb") as f:
-        synonym_df = pickle.load(f)
-    return terms, embeddings, term_master_df, synonym_df
+# クエリ入力
+query = st.text_input("🔍 症状や状態を入力してください（例：ズキズキ、吐き気 など）")
 
-@st.cache_resource
-def load_faiss_index():
-    index = faiss.read_index("faiss_index.index")
-    return index
+# term_master_df のロード（毎回明示）
+term_master_path = os.path.join("term_master_df.pkl")
+if os.path.exists(term_master_path):
+    term_master_df = pd.read_pickle(term_master_path)
+else:
+    st.error("❌ term_master_df.pkl が見つかりません")
+    st.stop()
 
-# 💻 Streamlit UI
-st.markdown("## 💊 MedDRA検索アプリ")
-st.write("症状や記述を入力してください")
+# 検索実行
+if st.button("検索実行") and query.strip():
+    with st.spinner("検索中..."):
+        raw_results = search_meddra(query, top_k_per_method=5)
+        reranked = rerank_results_v13(raw_results, query, top_n=10)
+        final_results = add_hierarchy_info(reranked, term_master_df)
 
-user_query = st.text_input("症状入力", "頭痛")
+    # 結果表示
+    if final_results:
+        df = pd.DataFrame(final_results)
+        df.columns = ["用語", "確からしさ（％）", "HLT", "HLGT", "SOC", "出典"]
+        st.dataframe(df, use_container_width=True)
 
-if st.button("検索"):
-    if user_query:
-        terms, embeddings, term_master_df, synonym_df = load_data()
-        index = load_faiss_index()
-
-        # ✅ クエリ拡張
-        expanded_terms = expand_query_gpt(user_query)
-        st.info(f"🔍 拡張語: {expanded_terms}")
-
-        # ✅ FAISS検索
-        results = []
-        for term in expanded_terms:
-            query_vec = encode_query(term)
-            D, I = index.search(np.array([query_vec]), k=10)
-            for score, idx in zip(D[0], I[0]):
-                if idx != -1:
-                    row = {
-                        "PT_Japanese": terms[idx]["PT_Japanese"],
-                        "PT_English": terms[idx]["PT_English"],
-                        "PT_ID": terms[idx]["PT_ID"],
-                        "HLT_ID": terms[idx]["HLT_ID"],
-                        "HLT_Japanese": terms[idx]["HLT_Japanese"],
-                        "score": float(score),
-                        "source": "FAISS"
-                    }
-                    results.append(row)
-        faiss_df = pd.DataFrame(results)
-
-        # ✅ シノニム検索
-        synonym_df_matched = match_synonyms(expanded_terms, synonym_df)
-
-        # ✅ マージ・再ランキング
-        merged_df = merge_faiss_and_synonym_results(faiss_df, synonym_df_matched)
-        reranked = rerank_results_v13(merged_df)
-
-        # ✅ 結果表示
-        st.write("### 🔎 検索結果")
-        st.dataframe(reranked)
-
-        # ✅ キャッシュ情報表示
-        if os.path.exists("score_cache.pkl"):
-            st.success("✅ score_cache.pkl（再ランキングキャッシュ）は存在します")
-        else:
-            st.warning("⚠️ score_cache.pkl は存在しません")
+        # CSVダウンロード
+        csv = df.to_csv(index=False, encoding="utf-8-sig")
+        st.download_button(
+            label="📥 検索結果をCSVでダウンロード",
+            data=csv,
+            file_name=f"meddra_results_{query}.csv",
+            mime="text/csv"
+        )
+    else:
+        st.warning("検索結果が見つかりませんでした。")

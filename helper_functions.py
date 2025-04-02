@@ -87,7 +87,7 @@ def rerank_results_v13(results, query, top_n=10, cache_path="/mnt/data/score_cac
         key = (q, t)
         if key in cache:
             return cache[key]
-        prompt = f"以下は医療症状に関する言葉です。
+        prompt = f"以下は医療症状に関する言葉です。"
 
 ユーザーの訴え：{q}
 候補語：{t}

@@ -1,115 +1,96 @@
+
 import openai
 import numpy as np
-import pandas as pd
 import faiss
-import os
 import pickle
+from sentence_transformers import SentenceTransformer
+import pandas as pd
+import os
 
-# OpenAI API キーを環境変数から取得
-openai.api_key = os.getenv("OPENAI_API_KEY")
-
-# クエリ拡張（GPTベース）
-def expand_query_gpt(query, cache_path="/mnt/data/query_expansion_cache.pkl"):
-    cache = load_cache(cache_path)
-    if query in cache:
-        return cache[query]
-
+# クエリ拡張（GPTによる）
+def expand_query_gpt(query):
     prompt = (
-        f"以下は医療症状に関する言葉です。
-"
-        f"ユーザーの訴え：{query}
-"
-        f"これに関連する代表的なキーワードを3つ、短く簡潔に日本語で挙げてください。
-"
-        f"例：
-"
-        f"訴え：皮膚がかゆい → かゆみ, 発疹, アレルギー
-"
-        f"訴え：頭が痛い → 頭痛, ズキズキ, 偏頭痛
-"
+        f"以下は医療症状に関する言葉です。\n"
+        f"ユーザーの訴え：{query}\n"
+        f"これに関連する代表的なキーワードを3つ、短く簡潔に日本語で挙げてください。\n"
+        f"例：\n"
+        f"訴え：皮膚がかゆい → かゆみ, 発疹, アレルギー\n"
+        f"訴え：頭が痛い → 頭痛, ズキズキ, 偏頭痛\n"
         f"訴え：{query} →"
     )
 
     try:
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=50,
+            messages=[
+                {"role": "system", "content": "医療用語に詳しいアシスタントです。"},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.7,
+            max_tokens=100,
         )
-        expanded_text = response.choices[0].message["content"]
-        expanded_terms = [w.strip() for w in expanded_text.replace("。", "").split(",")]
+        keywords = response["choices"][0]["message"]["content"]
+        return keywords
     except Exception as e:
-        expanded_terms = [query]
-
-    cache[query] = expanded_terms
-    save_cache(cache, cache_path)
-    return expanded_terms
+        return f"[ERROR] {e}"
 
 # クエリのベクトル化
-def encode_query(query, model, tokenizer):
-    inputs = tokenizer(query, return_tensors="pt", padding=True, truncation=True)
-    with torch.no_grad():
-        embeddings = model(**inputs).last_hidden_state.mean(dim=1).squeeze().numpy()
-    return embeddings.astype("float32")
+def encode_query(query, model_name="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"):
+    encoder = SentenceTransformer(model_name)
+    return encoder.encode([query])[0]
 
 # FAISS検索
-def search_meddra(query_vector, faiss_index, terms, top_k=10):
-    D, I = faiss_index.search(np.array([query_vector]), top_k)
-    results = []
-    for i, idx in enumerate(I[0]):
-        result = {
-            "term": terms[idx],
-            "score": float(D[0][i]),
-            "index": int(idx)
-        }
-        results.append(result)
-    return results
+def search_meddra(query_vector, index, terms, top_k=10):
+    D, I = index.search(np.array([query_vector]), top_k)
+    return [(terms[i], float(D[0][idx])) for idx, i in enumerate(I[0])]
 
-# GPTスコアによる再ランキング
-def rerank_results_gpt(query, results, cache_path="/mnt/data/score_cache.pkl"):
-    cache = load_cache(cache_path)
-    reranked = []
-
-    for r in results:
-        key = f"{query}__{r['term']}"
-        if key in cache:
-            score = cache[key]
+# MedDRA階層の付加（仮の簡易版）
+def add_hierarchy_info(result_terms, term_master_df):
+    rows = []
+    for term, score in result_terms:
+        match = term_master_df[term_master_df["PT_English"] == term]
+        if not match.empty:
+            row = match.iloc[0].to_dict()
+            row["Score"] = score
+            rows.append(row)
         else:
-            prompt = f"ユーザーの訴え「{query}」に対して、「{r['term']}」はどの程度関連していますか？10点満点で数字のみで評価してください。"
-            try:
-                response = openai.ChatCompletion.create(
-                    model="gpt-3.5-turbo",
-                    messages=[{"role": "user", "content": prompt}],
-                    max_tokens=5,
-                )
-                score_text = response.choices[0].message["content"].strip()
-                score = int(score_text[:2]) if score_text[:2].isdigit() else 5
-            except Exception as e:
-                score = 5
-            cache[key] = score
-        reranked.append({**r, "gpt_score": score})
+            rows.append({"PT_English": term, "Score": score})
+    return pd.DataFrame(rows)
 
-    reranked = sorted(reranked, key=lambda x: x["gpt_score"], reverse=True)
-    save_cache(cache, cache_path)
-    return reranked
-
-# MedDRA階層情報の追加
-def add_hierarchy_info(results_df, term_master_df):
-    merged_df = results_df.merge(
-        term_master_df,
-        how="left",
-        left_on="term",
-        right_on="PT_Japanese"
-    )
-    return merged_df
-
-# キャッシュの読み書き
-def load_cache(cache_path):
+# 再スコアリング（キャッシュ対応）
+def rerank_results_v13(results, query, top_n=10, cache_path="score_cache.pkl"):
+    key = (query, tuple(results))
     if os.path.exists(cache_path):
         with open(cache_path, "rb") as f:
-            return pickle.load(f)
-    return {}
+            cache = pickle.load(f)
+    else:
+        cache = {}
 
-def save_cache(cache, cache_path):
-    with open(cache_path, "wb") as f:
-        pickle.dump(cache, f)
+    if key in cache:
+        return cache[key]
+
+    prompt = (
+        f"以下は医療症状に関する言葉です。\n"
+        f"ユーザーの訴え：{query}\n"
+        f"候補語：{[x[0] for x in results]}\n"
+        f"この中から、訴えとの関連性が高いものを優先して、スコア付きで上位{top_n}件を挙げてください。\n"
+        f"形式：候補語：スコア（0～100）"
+    )
+
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "医療用語のスコアリングを行うアシスタントです。"},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0,
+            max_tokens=300,
+        )
+        result = response["choices"][0]["message"]["content"]
+        cache[key] = result
+        with open(cache_path, "wb") as f:
+            pickle.dump(cache, f)
+        return result
+    except Exception as e:
+        return f"[ERROR] {e}"

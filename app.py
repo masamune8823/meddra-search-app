@@ -8,9 +8,10 @@ import faiss
 from helper_functions import (
     expand_query_gpt,
     encode_query,
+    search_meddra,
     rerank_results_v13,
-    match_synonyms,
-    merge_faiss_and_synonym_results,
+    add_hierarchy_info,
+    load_term_master_df
 )
 
 # 🔧 FAISS・ベクトル・アセットの復元

@@ -1,76 +1,97 @@
-import os
-import pickle
-import numpy as np
-import pandas as pd
-from sentence_transformers import SentenceTransformer
-import openai
 
-# クエリ拡張（OpenAI GPT 使用）
-def expand_query_gpt(q, api_key=None):
-    openai.api_key = api_key or os.getenv("OPENAI_API_KEY")
-    prompt = f"以下は医療症状に関する言葉です。\nユーザーの訴え: {q}\nこの言葉に関連する症状や疾患名・病名・言い換えを3つ挙げてください。"
+import openai
+import numpy as np
+from sentence_transformers import SentenceTransformer, util
+import pickle
+import pandas as pd
+
+# GPTを使ったクエリ拡張
+def expand_query_gpt(original_query, cache={}, model="gpt-3.5-turbo"):
+    if original_query in cache:
+        return cache[original_query]
+
+    prompt = f"""以下は医療症状に関する言葉です。
+ユーザーの訴え：「{original_query}」
+この訴えに関連する検索キーワードを3つ、簡潔な単語や句で日本語で挙げてください。"""
+
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=100,
+            model=model,
+            messages=[
+                {"role": "system", "content": "あなたは医療用語に詳しいアシスタントです。"},
+                {"role": "user", "content": prompt}
+            ],
             temperature=0.7
         )
-        text = response.choices[0].message.content.strip()
-        return text.splitlines()
+        keywords = response['choices'][0]['message']['content']
+        expanded = [kw.strip("・- 
+") for kw in keywords.strip().split("
+") if kw.strip()]
+        cache[original_query] = expanded
+        return expanded
     except Exception as e:
-        print(f"OpenAI API Error: {e}")
+        print(f"Error in expand_query_gpt: {e}")
         return []
 
-# ベクトル化（MiniLM使用）
-def encode_query(query_text, model_name='sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2'):
-    model = SentenceTransformer(model_name)
-    return model.encode([query_text])[0]
+# クエリベクトル生成
+def encode_query(query, model):
+    return model.encode(query, convert_to_tensor=True)
 
-# FAISS検索
-def search_meddra(query_vector, faiss_index, terms, top_k=10):
-    distances, indices = faiss_index.search(np.array([query_vector]), top_k)
+# FAISS検索の結果とスコアをDataFrameにまとめる
+def search_meddra(query_vec, faiss_index, terms, embeddings, top_k=10):
+    import faiss
+    query_np = np.array([query_vec]).astype("float32")
+    D, I = faiss_index.search(query_np, top_k)
     results = []
-    for i, idx in enumerate(indices[0]):
-        results.append({
-            'Term': terms[idx],
-            'Score': float(distances[0][i]),
-            'Index': int(idx)
-        })
-    return results
+    for score, idx in zip(D[0], I[0]):
+        if idx < len(terms):
+            results.append({
+                "Term": terms[idx],
+                "Score": float(score)
+            })
+    return pd.DataFrame(results)
 
-# 再ランキング（GPTスコアリング）
-def rerank_results_v13(query, candidates, api_key=None):
-    openai.api_key = api_key or os.getenv("OPENAI_API_KEY")
-    results = []
-    for item in candidates:
-        term = item["Term"]
-        prompt = f"ユーザーの訴え: {query}\n候補用語: {term}\nこの候補は、ユーザーの訴えにどの程度関連しますか？10点満点で評価してください。"
-        try:
-            response = openai.ChatCompletion.create(
-                model="gpt-3.5-turbo",
-                messages=[{"role": "user", "content": prompt}],
-                max_tokens=10,
-                temperature=0
-            )
-            score_text = response.choices[0].message.content.strip()
-            score = int("".join(filter(str.isdigit, score_text)))
-            item["Relevance"] = score
-        except Exception as e:
-            item["Relevance"] = 0
-            print(f"Scoring error: {e}")
-        results.append(item)
-    return sorted(results, key=lambda x: x["Relevance"], reverse=True)
+# GPTスコアリング（再ランキング）
+def rerank_results_v13(original_query, candidate_terms, cache={}, model="gpt-3.5-turbo"):
+    scored = []
+    for term in candidate_terms:
+        cache_key = (original_query, term)
+        if cache_key in cache:
+            score = cache[cache_key]
+        else:
+            prompt = f"""以下は医療症状に関するクエリと候補用語のペアです。
+ユーザーの訴え：「{original_query}」
+候補用語：「{term}」
+この候補がどの程度関連しているかを100点満点で評価してください。
+ただし、単なる言葉の一致ではなく、意味的な妥当性を重視してください。
+スコアのみを整数で出力してください。"""
+            try:
+                response = openai.ChatCompletion.create(
+                    model=model,
+                    messages=[
+                        {"role": "system", "content": "あなたは医療分野の専門家です。"},
+                        {"role": "user", "content": prompt}
+                    ],
+                    temperature=0
+                )
+                score_str = response['choices'][0]['message']['content'].strip()
+                score = int(''.join(filter(str.isdigit, score_str.splitlines()[0])))
+                score = max(0, min(score, 100))  # 範囲制限
+                cache[cache_key] = score
+            except Exception as e:
+                print(f"Error scoring ({original_query}, {term}): {e}")
+                score = 0
+        scored.append((term, score))
 
-# シノニム対応
-def match_synonyms(query, synonym_df):
-    matched = synonym_df[synonym_df['synonym'].str.contains(query, na=False)]
-    return matched['term'].tolist()
+    df = pd.DataFrame(scored, columns=["Term", "Relevance"])
+    return df.sort_values("Relevance", ascending=False).reset_index(drop=True)
 
-# FAISS検索とシノニムをマージ
-def merge_faiss_and_synonym_results(faiss_results, synonym_results):
-    faiss_terms = {item['Term']: item for item in faiss_results}
-    for term in synonym_results:
-        if term not in faiss_terms:
-            faiss_results.append({'Term': term, 'Score': None, 'Index': None, 'Relevance': 5})
-    return faiss_results
+# 階層情報を付加する
+def add_hierarchy_info(df, term_master_df):
+    df = df.copy()
+    return df.merge(term_master_df, how="left", left_on="Term", right_on="PT_Japanese")
+
+# term_master_df の読み込み関数（Streamlit Cloud対応）
+def load_term_master_df(path="/mount/src/meddra-search-app/search_assets/term_master_df.pkl"):
+    with open(path, "rb") as f:
+        return pickle.load(f)

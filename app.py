@@ -1,11 +1,7 @@
-# app.py（完全修正版・分割ファイル対応・デグレなし）
+# app.py（完全修正済み、分割ファイル＋zip不要構成）
 import streamlit as st
 import pandas as pd
-import numpy as np
 import pickle
-import faiss
-import os
-
 from helper_functions import (
     expand_query_gpt,
     encode_query,
@@ -13,6 +9,9 @@ from helper_functions import (
     match_synonyms,
     merge_faiss_and_synonym_results
 )
+import numpy as np
+import faiss
+import os
 
 # 🔧 FAISSインデックス復元関数
 def restore_faiss_index_from_parts():
@@ -58,6 +57,7 @@ def load_data():
 # 🔁 FAISSインデックスの読み込み
 @st.cache_resource
 def load_faiss_index():
+    restore_faiss_index_from_parts()
     index = faiss.read_index("faiss_index.index")
     return index
 
@@ -69,32 +69,28 @@ user_query = st.text_input("症状入力", "頭痛")
 
 if st.button("検索"):
     if user_query:
-        try:
-            terms, embeddings, term_master_df, synonym_df = load_data()
-            index = load_faiss_index()
+        terms, embeddings, term_master_df, synonym_df = load_data()
+        index = load_faiss_index()
 
-            # クエリ拡張（OpenAI API または仮の処理）
-            expanded_terms = expand_query_gpt(user_query)
+        # クエリ拡張（OpenAI API or ダミー）
+        expanded_terms = expand_query_gpt(user_query)
 
-            # 検索処理
-            results = []
-            for term in expanded_terms:
-                query_vec = encode_query(term)
-                D, I = index.search(np.array([query_vec]), k=10)
-                for score, idx in zip(D[0], I[0]):
-                    results.append({"term": terms[idx], "score": float(score)})
+        # 検索（FAISSとシノニム）
+        results = []
+        for term in expanded_terms:
+            query_vec = encode_query(term)
+            D, I = index.search(np.array([query_vec]), k=10)
+            for score, idx in zip(D[0], I[0]):
+                results.append({"term": terms[idx], "score": float(score)})
 
-            # シノニム検索
-            synonym_matches = match_synonyms(expanded_terms, synonym_df)
+        # シノニム検索
+        synonym_matches = match_synonyms(expanded_terms, synonym_df)
 
-            # マージして再ランキング
-            merged = merge_faiss_and_synonym_results(results, synonym_matches)
-            reranked = rerank_results_v13(merged)
+        # マージして再ランキング
+        merged = merge_faiss_and_synonym_results(results, synonym_matches)
+        reranked = rerank_results_v13(merged)
 
-            # 結果表示
-            df = pd.DataFrame(reranked)
-            st.write("### 🔍 検索結果（上位）")
-            st.dataframe(df)
-
-        except Exception as e:
-            st.error(f"エラーが発生しました: {e}")
+        # 結果表示
+        df = pd.DataFrame(reranked)
+        st.write("### 🔍 検索結果（上位）")
+        st.dataframe(df)

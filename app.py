@@ -1,13 +1,12 @@
-# app.py（分割ZIP対応・GPT拡張＋FAISS＋再ランキング＋シノニム対応）
+# app.py（完全修正版・分割ZIP対応）
 
 import streamlit as st
 import pandas as pd
+import pickle
 import numpy as np
 import faiss
 import os
 import zipfile
-import pickle
-import glob
 
 from helper_functions import (
     expand_query_gpt,
@@ -17,40 +16,44 @@ from helper_functions import (
     merge_faiss_and_synonym_results
 )
 
-# 分割ZIPファイルを結合して展開する関数
-def restore_split_zip(base_name="streamlit_app_bundle.zip", part_ext=".zip.", extract_to="."):
-    part_files = sorted(glob.glob(base_name + ".*"))
-    if part_files:
-        with open(base_name, "wb") as f_out:
-            for part in part_files:
-                with open(part, "rb") as f_in:
-                    f_out.write(f_in.read())
-        with zipfile.ZipFile(base_name, 'r') as zip_ref:
-            zip_ref.extractall(extract_to)
-
-# バイナリ結合用ユーティリティ（indexやnpy用）
-def combine_parts(part_names, output_path):
-    with open(output_path, "wb") as output_file:
-        for part_name in part_names:
+# 分割ZIP（.zip.001～）から1つのZIPへ復元する関数
+def restore_split_zip(base_name="streamlit_app_bundle.zip", part_count=4):
+    if os.path.exists(base_name):
+        return  # 既に復元済みならスキップ
+    with open(base_name, "wb") as output:
+        for i in range(part_count):
+            part_name = f"{base_name}.{str(i+1).zfill(3)}"
+            if not os.path.exists(part_name):
+                raise FileNotFoundError(f"Missing part file: {part_name}")
             with open(part_name, "rb") as part_file:
-                output_file.write(part_file.read())
+                output.write(part_file.read())
 
-# データの読み込み
+# ZIPファイルを展開する関数
+def unzip_file(zip_path, extract_to="."):
+    with zipfile.ZipFile(zip_path, "r") as zip_ref:
+        zip_ref.extractall(extract_to)
+
+# データの読み込み関数（ZIP復元込み）
 @st.cache_resource
 def load_data():
-    # ZIP分割ファイルからの復元
+    # ZIP結合＆展開
     if not os.path.exists("faiss_index.index"):
         restore_split_zip()
+        unzip_file("streamlit_app_bundle.zip")
 
-    # faiss_indexがない場合は手動で結合
-    if not os.path.exists("faiss_index.index") and os.path.exists("faiss_index_part_a"):
-        combine_parts(["faiss_index_part_a", "faiss_index_part_b"], "faiss_index.index")
-    if not os.path.exists("meddra_embeddings.npy") and os.path.exists("meddra_embeddings_part_a"):
-        combine_parts(["meddra_embeddings_part_a", "meddra_embeddings_part_b"], "meddra_embeddings.npy")
+    # ファイル存在確認（万が一の展開失敗対策）
+    if not os.path.exists("faiss_index.index"):
+        raise FileNotFoundError("faiss_index.index が見つかりません。ZIP展開に失敗した可能性があります。")
+    if not os.path.exists("meddra_embeddings.npy"):
+        raise FileNotFoundError("meddra_embeddings.npy が見つかりません。")
+    if not os.path.exists("term_master_df.pkl"):
+        raise FileNotFoundError("term_master_df.pkl が見つかりません。")
+    if not os.path.exists("synonym_df_cat1.pkl"):
+        raise FileNotFoundError("synonym_df_cat1.pkl が見つかりません。")
 
+    # 読み込み処理
     index = faiss.read_index("faiss_index.index")
     embeddings = np.load("meddra_embeddings.npy")
-
     with open("term_master_df.pkl", "rb") as f:
         terms = pickle.load(f)
     with open("synonym_df_cat1.pkl", "rb") as f:
@@ -58,7 +61,7 @@ def load_data():
 
     return index, embeddings, terms, synonym_df
 
-# 検索処理
+# 検索実行関数
 def search_terms(user_input, index, embeddings, terms, synonym_df):
     expanded_terms = expand_query_gpt(user_input)
 
@@ -75,14 +78,14 @@ def search_terms(user_input, index, embeddings, terms, synonym_df):
 
     faiss_df = pd.DataFrame(all_results)
     faiss_df = rerank_results_v13(faiss_df)
-
     synonym_df_filtered = match_synonyms(user_input, synonym_df)
     final_df = merge_faiss_and_synonym_results(faiss_df, synonym_df_filtered)
+
     return final_df
 
-# UI
+# UI部分
 st.markdown("## 💊 MedDRA検索アプリ")
-st.markdown("自然言語で症状や所見を入力してください")
+st.markdown("症状や記述を入力してください")
 
 user_input = st.text_input("症状入力", value="頭痛")
 

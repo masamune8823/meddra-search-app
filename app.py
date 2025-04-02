@@ -1,7 +1,12 @@
-# app.py（完全修正済み、分割ファイル＋zip不要構成）
+# app.py
+
 import streamlit as st
 import pandas as pd
 import pickle
+import numpy as np
+import faiss
+import os
+
 from helper_functions import (
     expand_query_gpt,
     encode_query,
@@ -9,59 +14,44 @@ from helper_functions import (
     match_synonyms,
     merge_faiss_and_synonym_results
 )
-import numpy as np
-import faiss
-import os
 
-# 🔧 FAISSインデックス復元関数
+# 🔧 データ結合（必要なら）
 def restore_faiss_index_from_parts():
-    part_a = "faiss_index_part_a"
-    part_b = "faiss_index_part_b"
-    output = "faiss_index.index"
-    if not os.path.exists(output):
-        with open(output, "wb") as f_out:
-            for part in [part_a, part_b]:
-                with open(part, "rb") as f_in:
-                    f_out.write(f_in.read())
+    if not os.path.exists("faiss_index.index"):
+        with open("faiss_index.index", "wb") as w:
+            for part in ["faiss_index_part_a", "faiss_index_part_b"]:
+                with open(part, "rb") as r:
+                    w.write(r.read())
 
-# 🔧 ベクトル復元関数
 def restore_meddra_embeddings_from_parts():
-    part_a = "meddra_embeddings_part_a"
-    part_b = "meddra_embeddings_part_b"
-    output = "meddra_embeddings.npy"
-    if not os.path.exists(output):
-        with open(output, "wb") as f_out:
-            for part in [part_a, part_b]:
-                with open(part, "rb") as f_in:
-                    f_out.write(f_in.read())
+    if not os.path.exists("meddra_embeddings.npy"):
+        with open("meddra_embeddings.npy", "wb") as w:
+            for part in ["meddra_embeddings_part_a", "meddra_embeddings_part_b"]:
+                with open(part, "rb") as r:
+                    w.write(r.read())
 
-# 🔁 初回キャッシュ用データロード
+# ✅ キャッシュ付き初期データ読み込み
 @st.cache_resource
 def load_data():
     restore_faiss_index_from_parts()
     restore_meddra_embeddings_from_parts()
-
-    # ベクトルと用語リストの読み込み
     embeddings = np.load("meddra_embeddings.npy")
     with open("meddra_terms.npy", "rb") as f:
         terms = np.load(f, allow_pickle=True)
-
-    # マスタとシノニム辞書の読み込み
     with open("term_master_df.pkl", "rb") as f:
         term_master_df = pickle.load(f)
     with open("synonym_df_cat1.pkl", "rb") as f:
         synonym_df = pickle.load(f)
-
     return terms, embeddings, term_master_df, synonym_df
 
-# 🔁 FAISSインデックスの読み込み
+# ✅ FAISSインデックスの読み込み
 @st.cache_resource
 def load_faiss_index():
     restore_faiss_index_from_parts()
     index = faiss.read_index("faiss_index.index")
     return index
 
-# 💻 UI本体
+# 🔷 Streamlit UI
 st.markdown("## 💊 MedDRA検索アプリ")
 st.write("症状や記述を入力してください")
 
@@ -72,25 +62,27 @@ if st.button("検索"):
         terms, embeddings, term_master_df, synonym_df = load_data()
         index = load_faiss_index()
 
-        # クエリ拡張（OpenAI API or ダミー）
+        # 拡張
         expanded_terms = expand_query_gpt(user_query)
 
-        # 検索（FAISSとシノニム）
+        # 検索
         results = []
         for term in expanded_terms:
             query_vec = encode_query(term)
             D, I = index.search(np.array([query_vec]), k=10)
             for score, idx in zip(D[0], I[0]):
-                results.append({"term": terms[idx], "score": float(score)})
+                if idx < len(terms):
+                    row = term_master_df[term_master_df["PT_English"] == terms[idx]]
+                    if not row.empty:
+                        result = row.iloc[0].to_dict()
+                        result["score"] = float(score)
+                        result["source"] = "FAISS"
+                        results.append(result)
 
-        # シノニム検索
-        synonym_matches = match_synonyms(expanded_terms, synonym_df)
-
-        # マージして再ランキング
-        merged = merge_faiss_and_synonym_results(results, synonym_matches)
+        faiss_df = pd.DataFrame(results)
+        synonym_df_matched = match_synonyms(expanded_terms, synonym_df)
+        merged = merge_faiss_and_synonym_results(faiss_df, synonym_df_matched)
         reranked = rerank_results_v13(merged)
 
-        # 結果表示
-        df = pd.DataFrame(reranked)
-        st.write("### 🔍 検索結果（上位）")
-        st.dataframe(df)
+        st.write("### 🔍 検索結果")
+        st.dataframe(reranked)

@@ -1,4 +1,4 @@
-# app.py（シノニム統合版・ZIP分割対応）
+# app.py（最新版：分割ZIP対応 + helper_functions使用）
 
 import streamlit as st
 import pandas as pd
@@ -17,7 +17,7 @@ from helper_functions import (
     merge_faiss_and_synonym_results
 )
 
-# 分割されたZIPファイルを結合
+# ZIPパート結合
 def combine_zip_parts(part_prefix, output_zip):
     part_files = sorted([f for f in os.listdir() if f.startswith(part_prefix)])
     with open(output_zip, 'wb') as output:
@@ -25,12 +25,12 @@ def combine_zip_parts(part_prefix, output_zip):
             with open(part, 'rb') as pf:
                 shutil.copyfileobj(pf, output)
 
-# ZIPファイルを展開
+# ZIP展開
 def unzip_bundle(zip_path, extract_to="."):
     with zipfile.ZipFile(zip_path, 'r') as zip_ref:
         zip_ref.extractall(extract_to)
 
-# データの読み込み
+# データ読み込み
 @st.cache_resource
 def load_data():
     if not os.path.exists("streamlit_app_bundle.zip"):
@@ -45,7 +45,7 @@ def load_data():
         synonym_df = pickle.load(f)
     return index, embeddings, terms, synonym_df
 
-# 検索処理
+# 検索
 def search_terms(user_input, index, embeddings, terms, synonym_df):
     expanded_terms = expand_query_gpt(user_input)
     all_results = []

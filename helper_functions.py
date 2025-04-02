@@ -1,4 +1,3 @@
-
 import numpy as np
 import pandas as pd
 import faiss
@@ -55,7 +54,7 @@ def expand_query_gpt(query, cache_path="/mnt/data/query_expansion_cache.pkl"):
     if query in cache:
         return cache[query]
 
-    prompt = f"次の医療症状の言い換え・俗称・略語・誤記などを5つ挙げてください：{query}"
+    prompt = f"次の医療症状の言い換え・俗称・略語・誤記などを5つ挙げてください: {query}"
 
     try:
         from openai import OpenAI
@@ -87,12 +86,12 @@ def rerank_results_v13(results, query, top_n=10, cache_path="/mnt/data/score_cac
         key = (q, t)
         if key in cache:
             return cache[key]
-        prompt = f"以下は医療症状に関する言葉です。"
+        prompt = f"""以下は医療症状に関する言葉です。
 
-ユーザーの訴え：{q}
-候補語：{t}
+ユーザーの訴え: {q}
+候補語: {t}
 
-この2つが医学的にどれくらい近い意味かを0〜100点で評価してください。数値のみ出力してください。"
+この2つが医学的にどれくらい近い意味かを0〜100点で評価してください。数値のみ出力してください。"""
         try:
             from openai import OpenAI
             client = OpenAI()

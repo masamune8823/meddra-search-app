@@ -5,6 +5,7 @@ import numpy as np
 import faiss
 import openai
 import os
+import pickle
 
 from helper_functions import (
     search_meddra,
@@ -14,7 +15,6 @@ from helper_functions import (
 )
 
 # term_master_df 読み込み（あれば）
-import pickle
 term_master_df = None
 try:
     with open("term_master_df.pkl", "rb") as f:
@@ -32,14 +32,19 @@ def main():
 
         # GPTでSOCカテゴリを予測（クエリ拡張）
         with st.spinner("GPTで拡張語を生成中..."):
-            predicted_keywords = predict_soc_keywords_with_gpt(query)
-            st.markdown("#### 🧠 GPT予測キーワード")
-            st.write(predicted_keywords)
+            raw_keywords = predict_soc_keywords_with_gpt(query)
+            # ✅ キーワードの整形処理（番号・記号・改行除去）
+            cleaned_keywords = [
+                kw.strip("・ 0123456789.、。
+：:") for kw in raw_keywords if "：" not in kw and len(kw.strip()) > 1
+            ]
+            st.markdown("#### 🧠 GPT予測キーワード（整形後）")
+            st.write(cleaned_keywords)
 
         # 類似語検索（FAISS）
         with st.spinner("FAISSで用語検索中..."):
             search_results = []
-            for kw in predicted_keywords:
+            for kw in cleaned_keywords:
                 result = search_meddra(kw)
                 search_results.append(result)
             all_results = pd.concat(search_results).drop_duplicates(subset=["term"]).reset_index(drop=True)

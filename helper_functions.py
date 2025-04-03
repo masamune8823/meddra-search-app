@@ -84,9 +84,22 @@ def rerank_results_v13(results, query, top_n=10, cache_path="score_cache.pkl"):
 
     return output
 
-# 階層情報追加（ダミー：必要に応じて後で再定義）
+# ✅ 階層情報を term_master_df からマージして追加する関数（正式版）
 def add_hierarchy_info(results, term_master_df):
-    return results  # 現在はそのまま返す
+    df = pd.DataFrame(results, columns=["term", "score", "source"])
+    merged_df = df.merge(term_master_df, how="left", left_on="term", right_on="PT_Japanese")
+    output = [
+        (
+            row["term"],
+            row["score"],
+            row.get("HLT_Japanese", ""),
+            row.get("HLGT_Japanese", ""),
+            row.get("SOC_Japanese", ""),
+            row["source"]
+        )
+        for _, row in merged_df.iterrows()
+    ]
+    return output
 
 # term_master_df 読み込み
 def load_term_master_df(path):

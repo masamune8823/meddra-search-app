@@ -32,7 +32,14 @@ use_filter = st.checkbox("関連カテゴリで絞り込み（SOCフィルタ）
 if st.button("検索") and query:
     with st.spinner("検索中..."):
         # MedDRA検索（synonym_df + FAISS）
-        results = search_meddra(query, faiss_index, meddra_terms, synonym_df, top_k=20)
+        results = search_meddra(
+    query=query,
+    faiss_index=faiss_index,
+    meddra_terms=meddra_terms,
+    synonym_df=synonym_df,
+    top_k=20
+)
+
 
         # Top10件を再スコアリング（GPTベース）
         reranked = rerank_results_v13(query, results, top_n=10)

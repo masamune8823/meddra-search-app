@@ -1,88 +1,73 @@
 import numpy as np
 import pandas as pd
-import faiss
-import pickle
+import re
+import openai
 from sentence_transformers import SentenceTransformer
-from openai import OpenAI
 
-# OpenAI client (v1+ API)
-client = OpenAI()
+model = SentenceTransformer("sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
 
-# クエリベクトル生成（MiniLM）
-encoder = SentenceTransformer("sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
+def encode_query(text):
+    return model.encode([text])[0]
 
-def encode_query(query: str):
-    return encoder.encode(query)
-
-# 🔍 MedDRA検索（synonym_df + FAISS）
-def search_meddra(query, faiss_index, meddra_terms, synonym_df=None, top_k=20):
-    results = []
-
-    # メインクエリで検索
-    query_vec = encode_query(query)
-    D, I = faiss_index.search(np.array([query_vec]), top_k)
-    for i, score in zip(I[0], D[0]):
-        results.append({
-            "term": meddra_terms[i],
-            "score": float(score),
-            "source": "main"
-        })
-
-    # シノニムがあれば追加検索
-    if synonym_df is not None and query in synonym_df.index:
+def search_meddra(query, faiss_index, terms, synonym_df, top_k=20):
+    queries = [query]
+    if query in synonym_df.index:
         synonyms = synonym_df.loc[query]["synonyms"]
-        for syn in synonyms:
-            syn_vec = encode_query(syn)
-            D_syn, I_syn = faiss_index.search(np.array([syn_vec]), top_k)
-            for i, score in zip(I_syn[0], D_syn[0]):
-                results.append({
-                    "term": meddra_terms[i],
-                    "score": float(score),
-                    "source": f"syn:{syn}"
-                })
+        if isinstance(synonyms, str):
+            synonyms = [synonyms]
+        queries += synonyms
 
-    return pd.DataFrame(results).drop_duplicates(subset="term").reset_index(drop=True)
+    results = []
+    for q in queries:
+        q_vec = encode_query(q)
+        D, I = faiss_index.search(np.array([q_vec]), top_k)
+        for i, d in zip(I[0], D[0]):
+            results.append({"term": terms[i], "score": float(1 - d)})
+    return pd.DataFrame(results)
 
-# 🎯 GPT再スコアリング（v1対応）
 def rerank_results_v13(query, df, top_n=10):
-    if df.empty:
+    openai.api_key = os.getenv("OPENAI_API_KEY")
+    prompt_template = lambda term: f"以下の症状にどれだけ関連があるかを100点満点で評価してください：{query}
+候補：{term}"
+
+    reranked = []
+    for _, row in df.head(top_n).iterrows():
+        prompt = prompt_template(row['term'])
+        try:
+            response = openai.ChatCompletion.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {"role": "system", "content": "あなたは医療専門家です。"},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.2,
+            )
+            score_text = response["choices"][0]["message"]["content"]
+            score = int(re.search(r"\d+", score_text).group())
+        except:
+            score = 50
+        reranked.append({"term": row["term"], "score": score})
+    return pd.DataFrame(reranked)
+
+def add_hierarchy_info(df, term_master_df):
+    df["term_normalized"] = df["term"].str.lower().str.strip()
+    term_master_df["term_normalized"] = term_master_df["PT_Japanese"].str.lower().str.strip()
+    return df.merge(term_master_df, on="term_normalized", how="left")
+
+def rescale_scores(df):
+    if "score" not in df.columns or df.empty:
         return df
+    max_score = df["score"].max()
+    min_score = df["score"].min()
+    if max_score == min_score:
+        df["score"] = 100
+    else:
+        df["score"] = (df["score"] - min_score) / (max_score - min_score) * 100
+    return df
 
-    terms = df["term"].tolist()[:top_n]
-    prompt = (
-        f"以下の症状にどれだけ関連があるかを100点満点で評価してください：{query}\n"
-        "各用語ごとに「スコアのみ」を出力してください。"
-    )
-
-    messages = [{"role": "user", "content": prompt + "\n" + "\n".join(terms)}]
-
-    try:
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=messages,
-            temperature=0,
-        )
-        reply = response.choices[0].message.content
-        lines = reply.strip().split("\n")
-        scores = {}
-        for line in lines:
-            for term in terms:
-                if term in line:
-                    num = "".join([c for c in line if c.isdigit()])
-                    scores[term] = int(num) if num else 0
-
-        df["score"] = df["term"].map(scores).fillna(0)
-        df["score"] = df["score"].astype(int)
-        return df.sort_values("score", ascending=False).reset_index(drop=True)
-
-    except Exception as e:
-        print(f"Error in reranking: {e}")
-        df["score"] = 0
-        return df
-
-# 🎯 GPTによるSOCカテゴリ予測（v1構文）
 def predict_soc_keywords_with_gpt(query):
-    response = client.chat.completions.create(
+    openai.api_key = os.getenv("OPENAI_API_KEY")
+    response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
         messages=[
             {"role": "system", "content": "あなたは医療分野に詳しいAIです。与えられた症状に関連するMedDRAのSOCカテゴリを3つ、日本語で簡潔に予測してください。"},
@@ -90,28 +75,17 @@ def predict_soc_keywords_with_gpt(query):
         ],
         temperature=0.3,
     )
-    text = response.choices[0].message.content
-    keywords = [kw.strip("・ 、。\n") for kw in text.split() if kw.strip()]
+    text = response["choices"][0]["message"]["content"]
+    keywords = [kw.strip("・ 、。
+") for kw in text.split() if kw.strip()]
     return keywords[:3]
 
-# 🧩 検索結果にMedDRA階層情報を追加
-def add_hierarchy_info(df, term_master_df):
-    return df.merge(term_master_df, how="left", left_on="term", right_on="PT_English")
-
-# 🎯 SOCキーワードによるフィルタリング
-def filter_by_predicted_soc(df, keywords):
-    if not keywords:
-        return df
-    cols = ["SOC", "HLGT", "HLT"]
-    cols = [col for col in cols if col in df.columns]
-    if not cols:
-        return df
-    mask = df[cols].apply(lambda x: x.astype(str).str.contains("|".join(keywords)).any(), axis=1)
-    return df[mask].copy()
-
-# 🔧 スコアの再スケーリング（最大値100に）
-def rescale_scores(df, col="score"):
-    if col in df.columns and df[col].max() > 0:
-        df[col] = (df[col] / df[col].max()) * 100
-        df[col] = df[col].round(1)
-    return df
+def clean_predicted_keywords(raw_list):
+    cleaned = []
+    for item in raw_list:
+        item = item.strip()
+        item = re.sub(r'^\d+[\.\)\:\-]?', '', item)
+        item = item.split("：")[0].split(":")[0]
+        if item:
+            cleaned.append(item.strip())
+    return list(set(cleaned))

@@ -5,6 +5,16 @@ import numpy as np
 import os
 import faiss
 import pickle
+
+synonym_path = "synonym_df_cat1.pkl"
+synonym_df = None
+
+try:
+    with open(synonym_path, "rb") as f:
+        synonym_df = pickle.load(f)
+except Exception as e:
+    st.warning(f"同義語辞書の読み込みに失敗しました: {e}")
+
 from helper_functions import (
     encode_query,
     search_meddra,

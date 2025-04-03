@@ -1,98 +1,129 @@
 
-import numpy as np
-import pandas as pd
-import openai
-import os
-import pickle
-from config import (
-    faiss_index,
-    faiss_index_synonym,
-    meddra_terms,
-    synonym_df,
-    synonym_vectors,
-    encode_query,
-)
+    import numpy as np
+    import pandas as pd
+    import openai
+    import pickle
+    import os
+    import hashlib
 
-def search_meddra(query, top_k_per_method=5):
-    query_vector = encode_query(query)
+    # --- Utility: クエリをベクトル化 ---
+    def encode_query(query, model=None):
+        # 実装例（要：外部でベクトル化）
+        # ここは仮実装。呼び出し元でベクトル化を済ませておく前提でもOK
+        pass
 
-    # FAISS検索（メイン）
-    D_main, I_main = faiss_index.search(np.array([query_vector]), top_k_per_method)
-    results_main = [
-        {"term": meddra_terms[i], "score": float(D_main[0][rank]), "source": "faiss"}
-        for rank, i in enumerate(I_main[0])
-    ]
+    # --- synonym + FAISS統合検索 ---
+    def search_meddra(query, faiss_index, faiss_index_synonym, synonym_df, meddra_terms, top_k=20):
+        import sentence_transformers
+        model = sentence_transformers.SentenceTransformer("sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
+        query_vector = model.encode([query])
 
-    # synonym_dfベースの語から追加FAISS検索（synonym_faiss）
-    synonym_hits = synonym_df[synonym_df["synonym"].str.contains(query, case=False, na=False)]
-    matched_terms = synonym_hits["term"].unique().tolist()
+        D, I = faiss_index.search(np.array(query_vector).astype("float32"), top_k)
+        terms_main = [meddra_terms[i] for i in I[0]]
+        results = list(zip(terms_main, D[0], ["faiss"] * len(terms_main)))
 
-    results_synonym = []
-    if len(matched_terms) > 0:
-        matched_vecs = [synonym_vectors[matched_terms.index(t)] for t in matched_terms if t in matched_terms]
-        if matched_vecs:
-            vec_array = np.stack(matched_vecs)
-            D_syn, I_syn = faiss_index_synonym.search(vec_array, top_k_per_method)
-            for idx, row in enumerate(I_syn):
-                for rank, i in enumerate(row):
-                    results_synonym.append({
-                        "term": meddra_terms[i],
-                        "score": float(D_syn[idx][rank]),
-                        "source": "synonym_faiss"
-                    })
+        matched = synonym_df[synonym_df["synonym"].str.contains(query, na=False)]
+        if not matched.empty:
+            for keyword in matched["PT_English"].unique():
+                synonym_vector = model.encode([keyword])
+                D_syn, I_syn = faiss_index_synonym.search(np.array(synonym_vector).astype("float32"), top_k)
+                terms_syn = [meddra_terms[i] for i in I_syn[0]]
+                results += list(zip(terms_syn, D_syn[0], ["synonym"] * len(terms_syn)))
 
-    combined = results_main + results_synonym
-    results_df = pd.DataFrame(combined)
-    return results_df
+        return results
 
+    # --- GPT再ランキング（Top N） ---
+    def rerank_results_v13(results, query, client, top_n=10, cache_path="score_cache.pkl"):
+        cache = {}
+        if os.path.exists(cache_path):
+            with open(cache_path, "rb") as f:
+                cache = pickle.load(f)
 
-def rerank_results_v13(results_df, query, top_n=10, cache_path="score_cache.pkl"):
-    results_df = results_df.sort_values("score", ascending=False).drop_duplicates("term")
-    top_candidates = results_df.head(top_n)["term"].tolist()
-    key = (query, tuple(top_candidates))
+        def _hash(q, t):
+            return hashlib.md5(f"{q}_{t}".encode()).hexdigest()
 
-    # キャッシュ読み込み
-    cache = {}
-    if os.path.exists(cache_path):
-        with open(cache_path, "rb") as f:
-            cache = pickle.load(f)
-    if key in cache:
-        scores = cache[key]
-    else:
-        # OpenAI GPT-3.5によるスコアリング
-        system_prompt = "あなたは医療用語選定の専門家です。以下の症状に対して、どの用語が最も関連が高いかを評価してください。"
-        user_prompt = f"症状：「{query}」\n候補：" + "、".join(top_candidates)
+        reranked = []
+        top_results = results[:top_n]
 
-        client = openai.OpenAI()
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
-            ],
-            temperature=0.3
-        )
-        scores_text = response.choices[0].message.content.strip().splitlines()
-        scores = []
-        for line in scores_text:
-            for term in top_candidates:
-                if term in line:
-                    try:
-                        score = float("".join(filter(str.isdigit, line)))
-                        scores.append((term, score))
-                    except:
-                        pass
-        if len(scores) < len(top_candidates):
-            missing = set(top_candidates) - {t for t, _ in scores}
-            for m in missing:
-                scores.append((m, 50))
+        for term, score, source in top_results:
+            key = _hash(query, term)
+            if key in cache:
+                new_score = cache[key]
+            else:
+                messages = [
+                    {"role": "system", "content": "あなたは医学に詳しいAIです。"},
+                    {"role": "user", "content": f"以下の症状にどれだけ関連がありますか？
 
-        cache[key] = scores
+症状: {query}
+用語: {term}
+
+0〜100点で評価してください。"}
+                ]
+                try:
+                    response = client.chat.completions.create(
+                        model="gpt-3.5-turbo",
+                        messages=messages,
+                    )
+                    content = response.choices[0].message.content.strip()
+                    new_score = float([s for s in content.split() if s.replace('.', '', 1).isdigit()][0])
+                except:
+                    new_score = 50.0
+                cache[key] = new_score
+
+            reranked.append((term, new_score, source))
+
         with open(cache_path, "wb") as f:
             pickle.dump(cache, f)
 
-    score_map = dict(scores)
-    results_df["rerank_score"] = results_df["term"].map(score_map)
-    results_df = results_df.sort_values("rerank_score", ascending=False).copy()
-    results_df["確からしさ（％）"] = results_df["rerank_score"].round(1)
-    return results_df
+        reranked.sort(key=lambda x: x[1], reverse=True)
+        return reranked
+
+    # --- GPTベースのSOC予測 ---
+    def predict_soc_keywords_with_gpt(query, client, cache_path="soc_predict_cache.pkl"):
+        cache = {}
+        if os.path.exists(cache_path):
+            with open(cache_path, "rb") as f:
+                cache = pickle.load(f)
+
+        if query in cache:
+            return cache[query]
+
+        messages = [
+            {"role": "system", "content": "あなたは医学用語に詳しいAIです。"},
+            {"role": "user", "content": f"この症状「{query}」に関連するキーワード（例：神経、皮膚、消化、精神）を1〜3個出力してください。"}
+        ]
+        try:
+            response = client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=messages,
+            )
+            content = response.choices[0].message.content
+            keywords = [kw.strip() for kw in content.split("、") if kw.strip()]
+        except:
+            keywords = []
+
+        cache[query] = keywords
+        with open(cache_path, "wb") as f:
+            pickle.dump(cache, f)
+
+        return keywords
+
+    # --- フィルタ適用 ---
+    def filter_by_predicted_soc(df, keywords):
+        if not keywords or df.empty:
+            return df
+        mask_include = df[["HLT", "HLGT", "SOC"]].astype(str).apply(
+            lambda row: any(kw in row_str for row_str in row for kw in keywords), axis=1
+        )
+        return df[mask_include].copy()
+
+    # --- スコア再スケーリング ---
+    def rescale_scores(df, score_col="score"):
+        min_val = df[score_col].min()
+        max_val = df[score_col].max()
+        if max_val > min_val:
+            df["確からしさ（％）"] = ((df[score_col] - min_val) / (max_val - min_val)) * 100
+        else:
+            df["確からしさ（％）"] = 100
+        df["確からしさ（％）"] = df["確からしさ（％）"].round(1)
+        return df

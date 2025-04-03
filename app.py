@@ -58,8 +58,39 @@ if st.button("検索") and query:
         # 📊 結果表示（整形済DataFrameを前提とする）
 
         # 📊 結果表示（整形済DataFrameを前提とする）
+
+        # 📊 結果表示（整形済DataFrameを前提とする）
         st.subheader("🔎 検索結果（スコア順）")
 
+        if not reranked.empty:
+            # 列名を日本語に変換（念のため再確認）
+            reranked = reranked.rename(columns={
+                "term": "用語",
+                "score": "確からしさ（％）",
+                "HLT_Japanese": "HLT",
+                "HLGT_Japanese": "HLGT",
+                "SOC_Japanese": "SOC"
+            })
+
+            # スコア降順にソート
+            sorted_df = reranked.sort_values(by="確からしさ（％）", ascending=False).reset_index(drop=True)
+
+            # 存在する列だけ抽出
+            display_columns = [col for col in ["用語", "確からしさ（％）", "HLT", "HLGT", "SOC"] if col in sorted_df.columns]
+
+            # 表示（存在する列のみ）
+            st.dataframe(sorted_df[display_columns])
+
+            # ダウンロードボタン
+            csv_download = sorted_df.to_csv(index=False).encode("utf-8-sig")
+            st.download_button(
+                label="結果をCSVで保存",
+                data=csv_download,
+                file_name="meddra_results.csv",
+                mime="text/csv"
+            )
+        else:
+            st.warning("検索結果がありません。")
         if not reranked.empty:
             # 列名を日本語に変換（念のため再確認）
             reranked = reranked.rename(columns={

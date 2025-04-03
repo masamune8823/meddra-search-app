@@ -62,6 +62,18 @@ if st.button("検索") and query:
         # 📊 結果表示（整形済DataFrameを前提とする）
         st.subheader("🔎 検索結果（スコア順）")
 
+
+    # ✅ reranked に階層情報を付加
+    if 'term_master_df' in locals():
+        try:
+            reranked = add_hierarchy_info(reranked, term_master_df)
+        except Exception as e:
+            st.warning(f"階層情報の付加に失敗しました: {e}")
+    else:
+        st.warning("term_master_df が未定義のため階層情報を付加できません。")
+
+    # 🔍 debug: 現在のカラム確認
+    st.write("📋 reranked.columns:", reranked.columns.tolist())
         if not reranked.empty:
             # 列名を日本語に変換（念のため再確認）
             reranked = reranked.rename(columns={
@@ -91,6 +103,18 @@ if st.button("検索") and query:
             )
         else:
             st.warning("検索結果がありません。")
+
+    # ✅ reranked に階層情報を付加
+    if 'term_master_df' in locals():
+        try:
+            reranked = add_hierarchy_info(reranked, term_master_df)
+        except Exception as e:
+            st.warning(f"階層情報の付加に失敗しました: {e}")
+    else:
+        st.warning("term_master_df が未定義のため階層情報を付加できません。")
+
+    # 🔍 debug: 現在のカラム確認
+    st.write("📋 reranked.columns:", reranked.columns.tolist())
         if not reranked.empty:
             # 列名を日本語に変換（念のため再確認）
             reranked = reranked.rename(columns={
@@ -117,6 +141,18 @@ if st.button("検索") and query:
             )
         else:
             st.warning("検索結果がありません。")
+
+    # ✅ reranked に階層情報を付加
+    if 'term_master_df' in locals():
+        try:
+            reranked = add_hierarchy_info(reranked, term_master_df)
+        except Exception as e:
+            st.warning(f"階層情報の付加に失敗しました: {e}")
+    else:
+        st.warning("term_master_df が未定義のため階層情報を付加できません。")
+
+    # 🔍 debug: 現在のカラム確認
+    st.write("📋 reranked.columns:", reranked.columns.tolist())
         if not reranked.empty:
             # スコア降順にソート
             sorted_df = reranked.sort_values(by="確からしさ（％）", ascending=False).reset_index(drop=True)

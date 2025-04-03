@@ -33,7 +33,7 @@ def main():
         # GPTでSOCカテゴリを予測（クエリ拡張）
         with st.spinner("GPTで拡張語を生成中..."):
             raw_keywords = predict_soc_keywords_with_gpt(query)
-            # ✅ キーワードの整形処理（番号・記号・改行除去）
+            # ✅ 整形：番号・記号・説明削除
             cleaned_keywords = [
                 kw.strip("・ 0123456789.、。
 ：:") for kw in raw_keywords if "：" not in kw and len(kw.strip()) > 1

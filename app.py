@@ -6,6 +6,7 @@ import faiss
 import openai
 import os
 import pickle
+import re
 
 from helper_functions import (
     search_meddra,
@@ -22,6 +23,16 @@ try:
 except Exception as e:
     st.warning(f"term_master_df を読み込めませんでした: {e}")
 
+def clean_keywords(raw_keywords):
+    cleaned = []
+    for kw in raw_keywords:
+        # 行頭の番号や記号除去 → 例："1. かゆみ" → "かゆみ"
+        kw = re.sub(r"^[0-9０-９]+[\.．、:\s]*", "", kw)
+        kw = kw.strip("・ 0123456789.。、:：\n")
+        if len(kw) > 1:
+            cleaned.append(kw)
+    return cleaned
+
 def main():
     st.title("🔎 MedDRA検索アプリ")
     query = st.text_input("検索クエリを入力してください")
@@ -33,11 +44,7 @@ def main():
         # GPTでSOCカテゴリを予測（クエリ拡張）
         with st.spinner("GPTで拡張語を生成中..."):
             raw_keywords = predict_soc_keywords_with_gpt(query)
-            # ✅ 整形：番号・記号・説明削除
-            cleaned_keywords = [
-                kw.strip("・ 0123456789.、。
-：:") for kw in raw_keywords if "：" not in kw and len(kw.strip()) > 1
-            ]
+            cleaned_keywords = clean_keywords(raw_keywords)
             st.markdown("#### 🧠 GPT予測キーワード（整形後）")
             st.write(cleaned_keywords)
 

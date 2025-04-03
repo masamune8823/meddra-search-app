@@ -12,6 +12,21 @@ from helper_functions import (
     add_hierarchy_info
 )
 
+def main():
+    st.title("MedDRA検索アプリ")
+    query = st.text_input("検索クエリを入力してください")
+
+    if query:
+        st.write(f"🔍 入力クエリ: {query}")
+        # 簡易表示（例示）
+        results = search_meddra(query)
+        reranked = rerank_results_v13(results, query)
+
+        # 階層情報付加（存在すれば）
+        if 'term_master_df' in locals():
+            reranked = add_hierarchy_info(reranked, term_master_df)
+
+        st.dataframe(reranked)
 
 if __name__ == '__main__':
     main()

@@ -91,6 +91,10 @@ def predict_soc_keywords_with_gpt(query):
     keywords = [kw.strip("・ 、。\n") for kw in text.split() if kw.strip()]
     return keywords[:3]
 
+# 🧩 検索結果にMedDRA階層情報を追加
+def add_hierarchy_info(df, term_master_df):
+    return df.merge(term_master_df, how="left", left_on="term", right_on="PT_English")
+
 # 🎯 SOCキーワードによるフィルタリング
 def filter_by_predicted_soc(df, keywords):
     if not keywords:

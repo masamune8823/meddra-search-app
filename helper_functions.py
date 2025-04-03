@@ -1,9 +1,12 @@
 import numpy as np
 import pandas as pd
 import faiss
-import openai
 import pickle
 from sentence_transformers import SentenceTransformer
+from openai import OpenAI
+
+# OpenAI client (v1+ API)
+client = OpenAI()
 
 # クエリベクトル生成（MiniLM）
 encoder = SentenceTransformer("sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
@@ -40,7 +43,7 @@ def search_meddra(query, faiss_index, meddra_terms, synonym_df=None, top_k=20):
 
     return pd.DataFrame(results).drop_duplicates(subset="term").reset_index(drop=True)
 
-# 🎯 GPT再スコアリング
+# 🎯 GPT再スコアリング（v1対応）
 def rerank_results_v13(query, df, top_n=10):
     if df.empty:
         return df
@@ -54,12 +57,12 @@ def rerank_results_v13(query, df, top_n=10):
     messages = [{"role": "user", "content": prompt + "\n" + "\n".join(terms)}]
 
     try:
-        response = openai.ChatCompletion.create(
+        response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=messages,
             temperature=0,
         )
-        reply = response["choices"][0]["message"]["content"]
+        reply = response.choices[0].message.content
         lines = reply.strip().split("\n")
         scores = {}
         for line in lines:
@@ -77,9 +80,9 @@ def rerank_results_v13(query, df, top_n=10):
         df["score"] = 0
         return df
 
-# 🎯 GPTによるSOCカテゴリ予測
+# 🎯 GPTによるSOCカテゴリ予測（v1構文）
 def predict_soc_keywords_with_gpt(query):
-    response = openai.ChatCompletion.create(
+    response = client.chat.completions.create(
         model="gpt-3.5-turbo",
         messages=[
             {"role": "system", "content": "あなたは医療分野に詳しいAIです。与えられた症状に関連するMedDRAのSOCカテゴリを3つ、日本語で簡潔に予測してください。"},
@@ -87,7 +90,7 @@ def predict_soc_keywords_with_gpt(query):
         ],
         temperature=0.3,
     )
-    text = response["choices"][0]["message"]["content"]
+    text = response.choices[0].message.content
     keywords = [kw.strip("・ 、。\n") for kw in text.split() if kw.strip()]
     return keywords[:3]
 

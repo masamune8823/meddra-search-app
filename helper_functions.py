@@ -47,8 +47,7 @@ def rerank_results_v13(query, df, top_n=10):
 
     terms = df["term"].tolist()[:top_n]
     prompt = (
-        f"以下の症状にどれだけ関連があるかを100点満点で評価してください：{query}
-"
+        f"以下の症状にどれだけ関連があるかを100点満点で評価してください：{query}\n"
         "各用語ごとに「スコアのみ」を出力してください。"
     )
 

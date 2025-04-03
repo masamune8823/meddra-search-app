@@ -2,91 +2,75 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import faiss
-import openai
 import os
+import faiss
 import pickle
-import re
-
 from helper_functions import (
+    encode_query,
     search_meddra,
     rerank_results_v13,
-    predict_soc_keywords_with_gpt,
-    add_hierarchy_info
+    add_hierarchy_info,
+    rescale_scores,
 )
 
-# term_master_df 読み込み（あれば）
-term_master_df = None
-try:
-    with open("term_master_df.pkl", "rb") as f:
-        term_master_df = pickle.load(f)
-except Exception as e:
-    st.warning(f"term_master_df を読み込めませんでした: {e}")
+# --- ファイルパスの定義 ---
+DATA_DIR = "/mnt/data"
+index_path = os.path.join(DATA_DIR, "faiss_index.index")
+terms_path = os.path.join(DATA_DIR, "meddra_terms.npy")
+embed_path = os.path.join(DATA_DIR, "meddra_embeddings.npy")
+synonym_path = os.path.join(DATA_DIR, "synonym_df_cat1.pkl")
 
-def clean_keywords(raw_keywords):
-    cleaned = []
-    for kw in raw_keywords:
-        # 行頭の番号や記号除去 → 例："1. かゆみ" → "かゆみ"
-        kw = re.sub(r"^[0-9０-９]+[\.．、:\s]*", "", kw)
-        kw = kw.strip("・ 0123456789.。、:：\n")
-        if len(kw) > 1:
-            cleaned.append(kw)
-    return cleaned
+# --- データの読み込み ---
+with open(synonym_path, "rb") as f:
+    synonym_df = pickle.load(f)
 
-def main():
-    st.title("🔎 MedDRA検索アプリ")
-    query = st.text_input("検索クエリを入力してください")
+meddra_terms = np.load(terms_path, allow_pickle=True)
+meddra_embeddings = np.load(embed_path)
+faiss_index = faiss.read_index(index_path)
 
-    if query:
-        st.markdown("## 🔍 入力クエリ")
-        st.write(query)
+# --- Streamlit UI ---
+st.title("🔍 MedDRA検索アプリ（日本語シノニム対応）")
 
-        # GPTでSOCカテゴリを予測（クエリ拡張）
-        with st.spinner("GPTで拡張語を生成中..."):
-            raw_keywords = predict_soc_keywords_with_gpt(query)
-            cleaned_keywords = clean_keywords(raw_keywords)
-            st.markdown("#### 🧠 GPT予測キーワード（整形後）")
-            st.write(cleaned_keywords)
+query = st.text_input("検索語を入力してください（例：皮膚がかゆい）", "")
 
-        # 類似語検索（FAISS）
-        with st.spinner("FAISSで用語検索中..."):
-            search_results = []
-            for kw in cleaned_keywords:
-                result = search_meddra(kw)
-                search_results.append(result)
-            all_results = pd.concat(search_results).drop_duplicates(subset=["term"]).reset_index(drop=True)
+use_filter = st.checkbox("GPTによるSOC予測でフィルタリング（推奨）", value=False)
 
-        # 再スコアリング
-        with st.spinner("再スコアリング中..."):
-            reranked = rerank_results_v13(all_results, query)
+if st.button("検索") and query:
+    with st.spinner("検索中..."):
 
-        # 階層情報追加
-        if term_master_df is not None:
-            reranked = add_hierarchy_info(reranked, term_master_df)
+        # 🔍 検索（synonym_df + FAISS検索）
+        results = search_meddra(query, faiss_index, meddra_terms, synonym_df, top_k=20)
 
-        # 列名変換
-        reranked = reranked.rename(columns={
+        # 🎯 Top10件を再スコアリング（GPTベース）
+        reranked = rerank_results_v13(query, results, top_n=10)
+
+        # 🧱 階層情報の付加（HLT/HLGT/SOC）
+        final_results = add_hierarchy_info(reranked)
+
+        # 📊 GPTで関連SOCカテゴリを予測し、フィルタリング
+        if use_filter:
+            try:
+                from helper_functions import predict_soc_keywords_with_gpt
+                predicted_keywords = predict_soc_keywords_with_gpt(query)
+                final_results = final_results[
+                    final_results[["SOC", "HLGT", "HLT"]].astype(str).apply(
+                        lambda x: x.str.contains("|".join(predicted_keywords)).any(), axis=1
+                    )
+                ]
+            except ImportError:
+                st.warning("predict_soc_keywords_with_gpt 関数が定義されていません。フィルタはスキップされました。")
+
+        # 🔢 スコア再スケーリング（％表示）
+        final_results = rescale_scores(final_results)
+
+        # 📋 表示整形
+        final_results = final_results.rename(columns={
             "term": "用語",
             "score": "確からしさ（％）",
             "HLT_Japanese": "HLT",
             "HLGT_Japanese": "HLGT",
             "SOC_Japanese": "SOC"
-        })
+        })[["用語", "確からしさ（％）", "HLT", "HLGT", "SOC"]]
 
-        # 並べ替え
-        if "確からしさ（％）" in reranked.columns:
-            sorted_df = reranked.sort_values(by="確からしさ（％）", ascending=False).reset_index(drop=True)
-        else:
-            sorted_df = reranked
-
-        # 表示
-        display_columns = [col for col in ["用語", "確からしさ（％）", "HLT", "HLGT", "SOC"] if col in sorted_df.columns]
-        st.markdown("## 📝 検索結果（スコア順）")
-        st.dataframe(sorted_df[display_columns])
-
-        # ダウンロード
-        csv = sorted_df.to_csv(index=False).encode("utf-8")
-        st.download_button("📥 結果をCSVでダウンロード", data=csv, file_name="meddra_results.csv", mime="text/csv")
-
-if __name__ == "__main__":
-    main()
+        st.success("検索完了")
+        st.dataframe(final_results, use_container_width=True)

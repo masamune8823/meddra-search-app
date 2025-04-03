@@ -2,19 +2,14 @@
 
 import faiss
 import numpy as np
-import os
+import pandas as pd
 
-# パス設定（必要に応じて修正）
-BASE_PATH = "/mount/src/meddra-search-app"
+# FAISS index の読み込み
+faiss_index = faiss.read_index("faiss_index.index")
 
-# FAISSインデックスとベクトルの読み込み
-faiss_index_path = os.path.join(BASE_PATH, "faiss_index.index")
-meddra_embeddings_path = os.path.join(BASE_PATH, "meddra_embeddings.npy")
-meddra_terms_path = os.path.join(BASE_PATH, "meddra_terms.npy")
+# ベクトルや用語リストの読み込み
+meddra_terms = np.load("meddra_terms.npy", allow_pickle=True)
 
-# FAISSインデックスの読み込み
-faiss_index = faiss.read_index(faiss_index_path)
+# synonym_df の読み込み（新たに追加）
+synonym_df = pd.read_pickle("synonym_df_cat1.pkl")
 
-# ベクトルと用語の読み込み
-meddra_embeddings = np.load(meddra_embeddings_path)
-meddra_terms = np.load(meddra_terms_path, allow_pickle=True)

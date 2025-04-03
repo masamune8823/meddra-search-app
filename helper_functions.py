@@ -1,93 +1,63 @@
 
-import os
-import numpy as np
-import pandas as pd
-import openai
-from sentence_transformers import SentenceTransformer
-import faiss
-import pickle
+    import openai
+    import pickle
+    import os
+    import pandas as pd
 
-# クエリをエンコード（MiniLMモデル使用）
-def encode_query(query, model_name="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"):
-    model = SentenceTransformer(model_name)
-    return model.encode(query)
+    # キャッシュ読み込み（存在しなければ空dict）
+    def load_soc_cache(path="soc_predict_cache.pkl"):
+        if os.path.exists(path):
+            with open(path, "rb") as f:
+                return pickle.load(f)
+        return {}
 
-# GPTでクエリ拡張（OpenAI API v1対応）
-def expand_query_gpt(query, model="gpt-3.5-turbo"):
-    client = openai.OpenAI()
-    prompt = (
-        f"以下は医療症状に関する言葉です。\n"
-        f"ユーザーの訴え：{query}\n"
-        f"これに関連する代表的なキーワードを3つ、短く簡潔に日本語で挙げてください。\n"
-        f"例：\n"
-        f"訴え：皮膚がかゆい → かゆみ, 発疹, アレルギー\n"
-        f"訴え：頭が痛い → 頭痛, ズキズキ, 偏頭痛\n"
-        f"訴え：{query} →"
-    )
+    def save_soc_cache(cache, path="soc_predict_cache.pkl"):
+        with open(path, "wb") as f:
+            pickle.dump(cache, f)
 
-    response = client.chat.completions.create(
-        model=model,
-        messages=[
-            {"role": "system", "content": "あなたは優秀な医療用語アシスタントです。"},
-            {"role": "user", "content": prompt}
-        ]
-    )
-    output = response.choices[0].message.content.strip()
-    return [kw.strip() for kw in output.replace("→", "").split(",") if kw.strip()]
+    # GPTによるSOCカテゴリ予測
+    def predict_soc_keywords_with_gpt(query, client, model="gpt-3.5-turbo", cache_path="soc_predict_cache.pkl"):
+        cache = load_soc_cache(cache_path)
+        if query in cache:
+            return cache[query]
 
-# FAISS検索本体
-def search_meddra_core(query_vector, index, terms, top_k=10):
-    D, I = index.search(np.array([query_vector]), top_k)
-    return [(terms[i], float(D[0][idx])) for idx, i in enumerate(I[0])]
+        prompt = f"""
+以下の症状は、MedDRAで定義されるどのSOCカテゴリに最も関連していますか？
 
-# 検索ラッパー関数（キーワードごとにベクトル化＋検索＋集約）
-def search_meddra(query, top_k_per_method=5):
-    from config import faiss_index, meddra_terms
-    keywords = expand_query_gpt(query)
-    model = SentenceTransformer("sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
+症状: 「{query}」
 
-    results = []
-    for kw in keywords:
-        vec = model.encode(kw)
-        hits = search_meddra_core(vec, faiss_index, meddra_terms, top_k=top_k_per_method)
-        for term, score in hits:
-            results.append((term, score, kw))
+可能性のあるSOCカテゴリ（日本語で1～3個程度）を、簡潔なキーワードで出力してください。
+        """
 
-    return results
+        response = client.chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.3
+        )
+        lines = response.choices[0].message.content.strip().splitlines()
+        keywords = [kw.replace("-", "").strip("・:：●- ") for kw in lines if kw]
+        cache[query] = keywords
+        save_soc_cache(cache, cache_path)
+        return keywords
 
-# 再スコアリング（キャッシュ対応）
-def rerank_results_v13(results, query, top_n=10, cache_path="score_cache.pkl"):
-    key = (query, tuple(results))
-    if os.path.exists(cache_path):
-        with open(cache_path, "rb") as f:
-            cache = pickle.load(f)
-    else:
-        cache = {}
+    # GPT予測に基づく階層フィルタ
+    def filter_by_predicted_soc(results_df, soc_keywords):
+        if not soc_keywords:
+            return results_df
 
-    if key in cache:
-        return cache[key]
+        mask = results_df[["SOC", "HLGT", "HLT"]].apply(
+            lambda cols: cols.astype(str).str.contains("|".join(soc_keywords), case=False).any(axis=1),
+            axis=1
+        )
+        return results_df[mask].copy()
 
-    # 簡易スコアリング（スコアを0-100でスケーリング）
-    df = pd.DataFrame(results, columns=["term", "score", "source"])
-    df["確からしさ（％）"] = (df["score"] - df["score"].min()) / (df["score"].max() - df["score"].min()) * 100
-    df["確からしさ（％）"] = df["確からしさ（％）"].round(1)
-    deduped = df.sort_values("score", ascending=False).drop_duplicates("term").head(top_n)
+    # term_master_df 読み込み
+    def load_term_master_df(path):
+        return pd.read_pickle(path)
 
-    output = [
-        (row["term"], row["確からしさ（％）"], "", "", "", row["source"])
-        for _, row in deduped.iterrows()
-    ]
+    # ダミー関数（本番では置換）
+    def search_meddra(query, top_k_per_method=5):
+        return []
 
-    cache[key] = output
-    with open(cache_path, "wb") as f:
-        pickle.dump(cache, f)
-
-    return output
-
-# ✅ 元の簡易版に戻す：階層情報は追加せずそのまま返す
-def add_hierarchy_info(results, term_master_df):
-    return results  # 現在はそのまま返す
-
-# term_master_df 読み込み
-def load_term_master_df(path):
-    return pd.read_pickle(path)
+    def rerank_results_v13(results, query, top_n=10):
+        return []

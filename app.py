@@ -60,7 +60,17 @@ if st.button("検索") and query:
 
         if not reranked.empty:
             # スコア降順にソート
-            sorted_df = reranked.sort_values(by="確からしさ（％）", ascending=False).reset_index(drop=True)
+            
+        # 列名を日本語に変換（念のため再確認）
+        reranked = reranked.rename(columns={
+            "term": "用語",
+            "score": "確からしさ（％）",
+            "HLT_Japanese": "HLT",
+            "HLGT_Japanese": "HLGT",
+            "SOC_Japanese": "SOC"
+        })
+
+sorted_df = reranked.sort_values(by="確からしさ（％）", ascending=False).reset_index(drop=True)
 
             # 表示（列の並びを明示）
             st.dataframe(sorted_df[["用語", "確からしさ（％）", "HLT", "HLGT", "SOC"]])

@@ -5,15 +5,7 @@ import numpy as np
 import os
 import faiss
 import pickle
-
-synonym_path = "synonym_df_cat1.pkl"
-synonym_df = None
-
-try:
-    with open(synonym_path, "rb") as f:
-        synonym_df = pickle.load(f)
-except Exception as e:
-    st.warning(f"同義語辞書の読み込みに失敗しました: {e}")
+import platform
 
 from helper_functions import (
     encode_query,
@@ -23,16 +15,33 @@ from helper_functions import (
     rescale_scores,
 )
 
-# --- ファイルパスの定義 ---
-DATA_DIR = "/mnt/data"
+# --- 環境に応じてファイルパスを切り替え ---
+if "google" in platform.platform().lower():
+    DATA_DIR = "/mnt/data"  # Google Colab
+else:
+    DATA_DIR = "."  # Streamlit Cloud
+
+# --- ファイルパス定義 ---
 index_path = os.path.join(DATA_DIR, "faiss_index.index")
 terms_path = os.path.join(DATA_DIR, "meddra_terms.npy")
 embed_path = os.path.join(DATA_DIR, "meddra_embeddings.npy")
 synonym_path = os.path.join(DATA_DIR, "synonym_df_cat1.pkl")
+hierarchy_path = os.path.join(DATA_DIR, "term_master_df.pkl")
 
 # --- データの読み込み ---
-with open(synonym_path, "rb") as f:
-    synonym_df = pickle.load(f)
+try:
+    with open(synonym_path, "rb") as f:
+        synonym_df = pickle.load(f)
+except Exception as e:
+    st.warning(f"同義語辞書の読み込みに失敗しました: {e}")
+    synonym_df = None
+
+try:
+    with open(hierarchy_path, "rb") as f:
+        term_master_df = pickle.load(f)
+except Exception as e:
+    st.warning(f"term_master_df を読み込めませんでした: {e}")
+    term_master_df = None
 
 meddra_terms = np.load(terms_path, allow_pickle=True)
 meddra_embeddings = np.load(embed_path)
@@ -42,7 +51,6 @@ faiss_index = faiss.read_index(index_path)
 st.title("🔍 MedDRA検索アプリ（日本語シノニム対応）")
 
 query = st.text_input("検索語を入力してください（例：皮膚がかゆい）", "")
-
 use_filter = st.checkbox("GPTによるSOC予測でフィルタリング（推奨）", value=False)
 
 if st.button("検索") and query:
@@ -55,7 +63,7 @@ if st.button("検索") and query:
         reranked = rerank_results_v13(query, results, top_n=10)
 
         # 🧱 階層情報の付加（HLT/HLGT/SOC）
-        final_results = add_hierarchy_info(reranked)
+        final_results = add_hierarchy_info(reranked, term_master_df)
 
         # 📊 GPTで関連SOCカテゴリを予測し、フィルタリング
         if use_filter:

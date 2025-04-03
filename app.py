@@ -54,9 +54,27 @@ if st.button("検索") and query:
         reranked = rescale_scores(reranked)
 
         # 📊 結果表示
-        st.subheader("🔎 検索結果（Top 10）")
-        st.dataframe(reranked)
 
+        # 📊 結果表示（整形済DataFrameを前提とする）
+        st.subheader("🔎 検索結果（スコア順）")
+
+        if not reranked.empty:
+            # スコア降順にソート
+            sorted_df = reranked.sort_values(by="確からしさ（％）", ascending=False).reset_index(drop=True)
+
+            # 表示（列の並びを明示）
+            st.dataframe(sorted_df[["用語", "確からしさ（％）", "HLT", "HLGT", "SOC"]])
+
+            # ダウンロードボタン
+            csv_download = sorted_df.to_csv(index=False).encode("utf-8-sig")
+            st.download_button(
+                label="結果をCSVで保存",
+                data=csv_download,
+                file_name="meddra_results.csv",
+                mime="text/csv"
+            )
+        else:
+            st.warning("検索結果がありません。")
         # 💾 ダウンロードリンク
         csv = reranked.to_csv(index=False).encode("utf-8-sig")
         st.download_button("結果をCSVでダウンロード", data=csv, file_name="meddra_results.csv", mime="text/csv")

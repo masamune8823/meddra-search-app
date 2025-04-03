@@ -1,15 +1,12 @@
-# config.py
-
 import faiss
 import numpy as np
 import pandas as pd
 
 # FAISS index の読み込み
-faiss_index = faiss.read_index("faiss_index.index")
+faiss_index = faiss.read_index("/mount/src/meddra-search-app/faiss_index.index")
 
 # ベクトルや用語リストの読み込み
-meddra_terms = np.load("meddra_terms.npy", allow_pickle=True)
+meddra_terms = np.load("/mount/src/meddra-search-app/meddra_terms.npy", allow_pickle=True)
 
-# synonym_df の読み込み（新たに追加）
-synonym_df = pd.read_pickle("synonym_df_cat1.pkl")
-
+# 日本語シノニム辞書の読み込み（synonym_df）
+synonym_df = pd.read_pickle("/mount/src/meddra-search-app/synonym_df_cat1.pkl")

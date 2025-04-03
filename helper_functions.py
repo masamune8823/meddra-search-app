@@ -1,61 +1,63 @@
-
 import os
-import pickle
 import numpy as np
 import pandas as pd
-from sentence_transformers import SentenceTransformer, CrossEncoder
+import openai
+from sentence_transformers import SentenceTransformer
+import faiss
 
-# モデル読み込み
-encoder = SentenceTransformer("sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
-cross_encoder = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
+# クエリをエンコード（MiniLMモデル使用）
+def encode_query(query, model_name="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"):
+    model = SentenceTransformer(model_name)
+    return model.encode(query)
 
-# クエリをベクトル化
-def encode_query(query):
-    return encoder.encode(query)
-
-# クエリ拡張（OpenAI APIによる）
-def expand_query_gpt(query, cache_path="query_expansion_cache.pkl"):
-    if os.path.exists(cache_path):
-        with open(cache_path, "rb") as f:
-            cache = pickle.load(f)
-    else:
-        cache = {}
-
-    if query in cache:
-        return cache[query]
-
+# GPTでクエリ拡張（OpenAI API v1対応）
+def expand_query_gpt(query, model="gpt-3.5-turbo"):
+    client = openai.OpenAI()
     prompt = (
-        f"以下は医療症状に関する言葉です。\n"
-        f"ユーザーの訴え：{query}\n"
-        f"上記の内容から、検索に適したキーワードを5つ提案してください。"
+        f"以下は医療症状に関する言葉です。
+"
+        f"ユーザーの訴え：{query}
+"
+        f"これに関連する代表的なキーワードを3つ、短く簡潔に日本語で挙げてください。
+"
+        f"例：
+"
+        f"訴え：皮膚がかゆい → かゆみ, 発疹, アレルギー
+"
+        f"訴え：頭が痛い → 頭痛, ズキズキ, 偏頭痛
+"
+        f"訴え：{query} →"
     )
 
-    import openai
-    openai.api_key = os.getenv("OPENAI_API_KEY")
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.7,
+    response = client.chat.completions.create(
+        model=model,
+        messages=[
+            {"role": "system", "content": "あなたは優秀な医療用語アシスタントです。"},
+            {"role": "user", "content": prompt}
+        ]
     )
+    output = response.choices[0].message.content.strip()
+    return [kw.strip() for kw in output.replace("→", "").split(",") if kw.strip()]
 
-    expanded = response.choices[0].message.content.strip().split("\n")
-    keywords = [kw.strip("・ ") for kw in expanded if kw.strip()]
-    cache[query] = keywords
-    with open(cache_path, "wb") as f:
-        pickle.dump(cache, f)
-    return keywords
+# FAISS検索本体
+def search_meddra_core(query_vector, index, terms, top_k=10):
+    D, I = index.search(np.array([query_vector]), top_k)
+    return [(terms[i], float(D[0][idx])) for idx, i in enumerate(I[0])]
 
-# FAISS検索をラップ（複数拡張語に対応）
+# 検索ラッパー関数（キーワードごとにベクトル化＋検索＋集約）
 def search_meddra(query, top_k_per_method=5):
     from config import faiss_index, meddra_terms
     keywords = expand_query_gpt(query)
-    all_results = []
+    model = SentenceTransformer("sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
+
+    results = []
     for kw in keywords:
-        q_vec = encode_query(kw)
-        D, I = faiss_index.search(np.array([q_vec]), top_k_per_method)
-        for idx, i in enumerate(I[0]):
-            all_results.append((meddra_terms[i], float(D[0][idx])))
-    return all_results
+        vec = model.encode(kw)
+        hits = search_meddra_core(vec, faiss_index, meddra_terms, top_k=top_k_per_method)
+        for term, score in hits:
+            results.append((term, score, kw))
+
+    return results
 
 # 再スコアリング（キャッシュ対応）
 def rerank_results_v13(results, query, top_n=10, cache_path="score_cache.pkl"):
@@ -69,23 +71,27 @@ def rerank_results_v13(results, query, top_n=10, cache_path="score_cache.pkl"):
     if key in cache:
         return cache[key]
 
-    texts = [r[0] for r in results]
-    pairs = [(query, t) for t in texts]
-    scores = cross_encoder.predict(pairs)
-    reranked = sorted(zip(texts, scores), key=lambda x: x[1], reverse=True)[:top_n]
+    # 簡易スコアリング（スコアを0-100でスケーリング）
+    df = pd.DataFrame(results, columns=["term", "score", "source"])
+    df["確からしさ（％）"] = (df["score"] - df["score"].min()) / (df["score"].max() - df["score"].min()) * 100
+    df["確からしさ（％）"] = df["確からしさ（％）"].round(1)
+    deduped = df.sort_values("score", ascending=False).drop_duplicates("term").head(top_n)
 
-    # スコアをパーセンテージに変換
-    max_score = max(scores) if scores else 1
-    final = [(term, round(score / max_score * 100, 1)) for term, score in reranked]
-    cache[key] = final
+    output = [
+        (row["term"], row["確からしさ（％）"], "", "", "", row["source"])
+        for _, row in deduped.iterrows()
+    ]
+
+    cache[key] = output
     with open(cache_path, "wb") as f:
         pickle.dump(cache, f)
-    return final
 
-# 階層情報追加（ダミー：後ほど必要に応じて定義）
+    return output
+
+# 階層情報追加（ダミー：必要に応じて後で再定義）
 def add_hierarchy_info(results, term_master_df):
-    return results
+    return results  # 現在はそのまま返す
 
-# term_master_df 読み込み（Streamlit側で使用）
+# term_master_df 読み込み
 def load_term_master_df(path):
     return pd.read_pickle(path)

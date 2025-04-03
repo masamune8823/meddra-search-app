@@ -44,8 +44,7 @@ def expand_query_gpt(query):
             messages=messages
         )
         terms = response.choices[0].message.content.strip().split("、")
-        terms = [term.strip(" ・
-") for term in terms if term.strip()]
+        terms = [term.strip(" ・") for term in terms if term.strip()]
     except Exception:
         terms = []
 

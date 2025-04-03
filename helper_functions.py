@@ -68,11 +68,10 @@ def rerank_results_v13(query, results_df):
     else:
         score_cache = {}
 
-    top_terms = results_df["term"].tolist()[:10]
-    scored = []
-
     for term in top_terms:
         key = (query, term)
+        if key in score_cache:
+            score = score_cache[key]
         else:
             prompt = f"以下の症状にどれだけ関連があるかを100点満点で評価してください。\n症状: {query}\n候補用語: {term}\nスコア:"
             response = openai.ChatCompletion.create(
@@ -82,8 +81,7 @@ def rerank_results_v13(query, results_df):
             )
             score = float(response.choices[0].message.content.strip().split("\n")[0])
             score_cache[key] = score
-
-        scored.append((term, score))
+        scored.append((term, score, "gpt"))
 
     with open(cache_path, "wb") as f:
         pickle.dump(score_cache, f)

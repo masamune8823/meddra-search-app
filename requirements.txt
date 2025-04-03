@@ -1,6 +1,5 @@
 streamlit
-openai
-faiss-cpu
-sentence-transformers
-numpy
 pandas
+numpy
+faiss-cpu
+openai

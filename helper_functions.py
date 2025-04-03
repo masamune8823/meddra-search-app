@@ -1,4 +1,3 @@
-
 import numpy as np
 import pandas as pd
 import faiss
@@ -53,9 +52,7 @@ def rerank_results_v13(query, df, top_n=10):
         "各用語ごとに「スコアのみ」を出力してください。"
     )
 
-    messages = [{"role": "user", "content": prompt + "
-" + "
-".join(terms)}]
+    messages = [{"role": "user", "content": prompt + "\n" + "\n".join(terms)}]
 
     try:
         response = openai.ChatCompletion.create(
@@ -64,8 +61,7 @@ def rerank_results_v13(query, df, top_n=10):
             temperature=0,
         )
         reply = response["choices"][0]["message"]["content"]
-        lines = reply.strip().split("
-")
+        lines = reply.strip().split("\n")
         scores = {}
         for line in lines:
             for term in terms:

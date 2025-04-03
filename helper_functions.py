@@ -8,9 +8,7 @@ import hashlib
 
 # --- Utility: クエリをベクトル化 ---
 def encode_query(query, model=None):
-    # 実装例（要：外部でベクトル化）
-    # ここは仮実装。呼び出し元でベクトル化を済ませておく前提でもOK
-    pass
+    pass  # 外部でベクトル化を実施する構成
 
 # --- synonym + FAISS統合検索 ---
 def search_meddra(query, faiss_index, faiss_index_synonym, synonym_df, meddra_terms, top_k=20):
@@ -52,12 +50,7 @@ def rerank_results_v13(results, query, client, top_n=10, cache_path="score_cache
         else:
             messages = [
                 {"role": "system", "content": "あなたは医学に詳しいAIです。"},
-                {"role": "user", "content": f"以下の症状にどれだけ関連がありますか？
-
-症状: {query}
-用語: {term}
-
-0〜100点で評価してください。"}
+                {"role": "user", "content": f"以下の症状にどれだけ関連がありますか？\n\n症状: {query}\n用語: {term}\n\n0〜100点で評価してください。"}
             ]
             try:
                 response = client.chat.completions.create(

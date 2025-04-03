@@ -77,6 +77,20 @@ def rerank_results_v13(query, df, top_n=10):
         df["score"] = 0
         return df
 
+# 🎯 GPTによるSOCカテゴリ予測
+def predict_soc_keywords_with_gpt(query):
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[
+            {"role": "system", "content": "あなたは医療分野に詳しいAIです。与えられた症状に関連するMedDRAのSOCカテゴリを3つ、日本語で簡潔に予測してください。"},
+            {"role": "user", "content": f"以下の症状に関連するSOCカテゴリを教えてください：\n\n{query}"}
+        ],
+        temperature=0.3,
+    )
+    text = response["choices"][0]["message"]["content"]
+    keywords = [kw.strip("・ 、。\n") for kw in text.split() if kw.strip()]
+    return keywords[:3]
+
 # 🎯 SOCキーワードによるフィルタリング
 def filter_by_predicted_soc(df, keywords):
     if not keywords:

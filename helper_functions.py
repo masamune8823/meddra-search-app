@@ -1,150 +1,110 @@
-import os
-import pickle
+import openai
 import faiss
 import numpy as np
 import pandas as pd
-import openai
+from sentence_transformers import SentenceTransformer
 
-# クエリ拡張（GPT）
-def expand_query_gpt(query):
-    cache_path = "query_expansion_cache.pkl"
-    if os.path.exists(cache_path):
-        with open(cache_path, "rb") as f:
-            cache = pickle.load(f)
-    else:
-        cache = {}
+# 外部からインポート（configで統一管理）
+from config import faiss_index, meddra_terms, synonym_df
 
-    if query in cache:
-        return cache[query]
+# モデルの読み込み（MiniLMベース）
+model = SentenceTransformer("sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
 
-    prompt = f"以下は医療症状に関する言葉です。「{query}」から連想される代表的な症状名を日本語で3つ、コンマ区切りで出力してください。"
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.7
-    )
-    keywords = response.choices[0].message.content.strip()
-    expanded = [kw.strip() for kw in keywords.split(",") if kw.strip()]
-
-    cache[query] = expanded
-    with open(cache_path, "wb") as f:
-        pickle.dump(cache, f)
-
-    return expanded
-
-# ベクトル化（MiniLM）
-def encode_query(query, model=None):
-    from sentence_transformers import SentenceTransformer
-    if model is None:
-        model = SentenceTransformer("sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
+# クエリをベクトル化
+def encode_query(query):
     return model.encode([query])[0]
 
-# MedDRA検索（synonym_df + FAISS）
-def search_meddra(query, faiss_index, meddra_terms, synonym_df, top_k=10):
-    query_vec = encode_query(query)
-    _, indices = faiss_index.search(np.array([query_vec]), top_k)
+# GPTベースでSOCカテゴリを予測
+def predict_soc_keywords_with_gpt(query, client, model="gpt-3.5-turbo"):
+    prompt = f"""
+以下の症状は、MedDRAで定義されるどのSOCカテゴリに最も関連していますか？
 
-    term_candidates = list(meddra_terms[indices[0]])
+症状: 「{query}」
 
+可能性のあるSOCカテゴリ（日本語で1～3個程度）を、簡潔なキーワードで出力してください。
+    """
+    response = client.chat.completions.create(
+        model=model,
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.3
+    )
+    keywords = response.choices[0].message.content.strip().splitlines()
+    return [kw.replace("-", "").strip("・:：●- ") for kw in keywords if kw]
+
+# SOCやHLGTの階層でフィルタ
+def filter_by_predicted_soc(results_df, soc_keywords):
+    if not soc_keywords:
+        return results_df
+    mask = results_df[["SOC", "HLGT", "HLT"]].apply(
+        lambda cols: cols.astype(str).str.contains("|".join(soc_keywords), case=False).any(axis=1),
+        axis=1
+    )
+    return results_df[mask].copy()
+
+# MedDRA検索（FAISS＋synonym_df）
+def search_meddra(query, top_k=10):
+    query_vector = encode_query(query)
+    D, I = faiss_index.search(np.array([query_vector]), top_k)
+    results = [(meddra_terms[i], float(D[0][idx]), "faiss") for idx, i in enumerate(I[0])]
+
+    # synonym_dfを用いた拡張
     if query in synonym_df.index:
         synonyms = synonym_df.loc[query]["synonyms"]
         for syn in synonyms:
             syn_vec = encode_query(syn)
-            _, syn_indices = faiss_index.search(np.array([syn_vec]), top_k)
-            term_candidates.extend(list(meddra_terms[syn_indices[0]]))
+            D_syn, I_syn = faiss_index.search(np.array([syn_vec]), top_k)
+            for idx, i in enumerate(I_syn[0]):
+                results.append((meddra_terms[i], float(D_syn[0][idx]), "synonym_faiss"))
+    return results
 
-    unique_terms = list(set(term_candidates))
-    results_df = pd.DataFrame(unique_terms, columns=["term"])
-    results_df["score"] = 0.0
-    results_df["source"] = "FAISS+synonym"
-    return results_df
+# GPTによる再スコアリング（Top10件）
+def rerank_results_v13(query, results, top_n=10, cache_path="score_cache.pkl"):
+    import os
+    import pickle
 
-# 再スコアリング（GPT）
-def rerank_results_v13(query, results_df):
-    cache_path = "score_cache.pkl"
+    key = (query, tuple(results))
     if os.path.exists(cache_path):
         with open(cache_path, "rb") as f:
-            score_cache = pickle.load(f)
-    else:
-        score_cache = {}
+            cache = pickle.load(f)
+        if key in cache:
+            return cache[key]
 
+    top_terms = [term for term, *_ in results[:top_n]]
+    scores = []
     for term in top_terms:
-        key = (query, term)
-        if key in score_cache:
-            score = score_cache[key]
-        else:
-            prompt = f"以下の症状にどれだけ関連があるかを100点満点で評価してください。\n症状: {query}\n候補用語: {term}\nスコア:"
-            response = openai.ChatCompletion.create(
-                model="gpt-3.5-turbo",
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0
-            )
-            score = float(response.choices[0].message.content.strip().split("\n")[0])
-            score_cache[key] = score
-        scored.append((term, score, "gpt"))
+        prompt = f"{query} に関連する症状名として、 {term} はどの程度妥当ですか？パーセンテージで答えてください（例: 80%）"
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.2
+        )
+        content = response["choices"][0]["message"]["content"]
+        percent = "".join(c for c in content if c.isdigit())
+        score = int(percent) if percent else 50
+        scores.append(score)
 
-    with open(cache_path, "wb") as f:
-        pickle.dump(score_cache, f)
-
-    reranked = pd.DataFrame(scored, columns=["term", "score"])
-    reranked["source"] = "reranked"
-    return reranked
-
-# 階層情報を付加
-def add_hierarchy_info(results_df, term_master_df):
-    merged = results_df.merge(
-        term_master_df[["PT_Japanese", "HLT_Japanese", "HLGT_Japanese", "SOC_Japanese"]],
-        how="left",
-        left_on="term",
-        right_on="PT_Japanese"
-    )
-    merged = merged.drop(columns=["PT_Japanese"])
-    merged = merged.rename(columns={
-        "HLT_Japanese": "HLT",
-        "HLGT_Japanese": "HLGT",
-        "SOC_Japanese": "SOC"
+    df = pd.DataFrame({
+        "term": top_terms,
+        "score": scores
     })
-    return merged
+    df["確からしさ（％）"] = df["score"].round(1)
+    result_df = df.merge(pd.DataFrame(results, columns=["term", "raw_score", "source"]), on="term", how="left")
 
-# スコア再スケーリング
-def rescale_scores(df, col="score"):
-    min_val = df[col].min()
-    max_val = df[col].max()
-    if max_val > min_val:
-        df["確からしさ（％）"] = ((df[col] - min_val) / (max_val - min_val)) * 100
-    else:
-        df["確からしさ（％）"] = 100
-    df["確からしさ（％）"] = df["確からしさ（％）"].round(1)
-    return df
-
-# LLMでSOCカテゴリ予測
-def predict_soc_keywords_with_gpt(query):
-    cache_path = "soc_predict_cache.pkl"
     if os.path.exists(cache_path):
         with open(cache_path, "rb") as f:
             cache = pickle.load(f)
     else:
         cache = {}
-
-    if query in cache:
-        return cache[query]
-
-    prompt = f"以下の医療症状に関連しそうなMedDRAのSOCカテゴリのキーワードを3つ、日本語で挙げてください（例：神経、皮膚、消化）。\n\n症状: {query}\nキーワード:"
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.5
-    )
-    keywords = response.choices[0].message.content.strip()
-    predicted = [kw.strip() for kw in keywords.split("、") if kw.strip()]
-    cache[query] = predicted
+    cache[key] = result_df
     with open(cache_path, "wb") as f:
         pickle.dump(cache, f)
-    return predicted
 
-# SOCキーワードでフィルタ
-def filter_by_predicted_soc(df, keywords):
-    mask = df[["HLT", "HLGT", "SOC"]].apply(
-        lambda col: col.astype(str).str.contains("|".join(keywords)), axis=1
-    )
-    return df[mask].copy()
+    return result_df
+
+# MedDRAの階層情報を付加
+def add_hierarchy_info(results_df, term_master_df):
+    return results_df.merge(term_master_df, how="left", left_on="term", right_on="PT_Japanese")
+
+# term_master_dfの読み込み
+def load_term_master_df(path):
+    return pd.read_pickle(path)

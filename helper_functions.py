@@ -1,110 +1,143 @@
-import openai
-import faiss
+
 import numpy as np
 import pandas as pd
+import faiss
+import openai
+import os
+import pickle
 from sentence_transformers import SentenceTransformer
 
-# 外部からインポート（configで統一管理）
-from config import faiss_index, meddra_terms, synonym_df
+# 環境変数からOpenAI APIキーを取得
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
-# モデルの読み込み（MiniLMベース）
-model = SentenceTransformer("sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
+# ベクトル化モデル
+encoder = SentenceTransformer("sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
 
-# クエリをベクトル化
-def encode_query(query):
-    return model.encode([query])[0]
+# FAISSとデータの読み込み
+faiss_index = faiss.read_index("faiss_index.index")
+meddra_terms = np.load("meddra_terms.npy", allow_pickle=True)
+synonym_df = pd.read_pickle("synonym_df_cat1.pkl")
 
-# GPTベースでSOCカテゴリを予測
-def predict_soc_keywords_with_gpt(query, client, model="gpt-3.5-turbo"):
-    prompt = f"""
-以下の症状は、MedDRAで定義されるどのSOCカテゴリに最も関連していますか？
+# term_master_df は app.py 側で読み込み
 
-症状: 「{query}」
+def encode_query(text):
+    return encoder.encode(text)
 
-可能性のあるSOCカテゴリ（日本語で1～3個程度）を、簡潔なキーワードで出力してください。
-    """
-    response = client.chat.completions.create(
-        model=model,
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.3
-    )
-    keywords = response.choices[0].message.content.strip().splitlines()
-    return [kw.replace("-", "").strip("・:：●- ") for kw in keywords if kw]
-
-# SOCやHLGTの階層でフィルタ
-def filter_by_predicted_soc(results_df, soc_keywords):
-    if not soc_keywords:
-        return results_df
-    mask = results_df[["SOC", "HLGT", "HLT"]].apply(
-        lambda cols: cols.astype(str).str.contains("|".join(soc_keywords), case=False).any(axis=1),
-        axis=1
-    )
-    return results_df[mask].copy()
-
-# MedDRA検索（FAISS＋synonym_df）
-def search_meddra(query, top_k=10):
-    query_vector = encode_query(query)
-    D, I = faiss_index.search(np.array([query_vector]), top_k)
-    results = [(meddra_terms[i], float(D[0][idx]), "faiss") for idx, i in enumerate(I[0])]
-
-    # synonym_dfを用いた拡張
-    if query in synonym_df.index:
-        synonyms = synonym_df.loc[query]["synonyms"]
-        for syn in synonyms:
-            syn_vec = encode_query(syn)
-            D_syn, I_syn = faiss_index.search(np.array([syn_vec]), top_k)
-            for idx, i in enumerate(I_syn[0]):
-                results.append((meddra_terms[i], float(D_syn[0][idx]), "synonym_faiss"))
-    return results
-
-# GPTによる再スコアリング（Top10件）
-def rerank_results_v13(query, results, top_n=10, cache_path="score_cache.pkl"):
-    import os
-    import pickle
-
-    key = (query, tuple(results))
-    if os.path.exists(cache_path):
-        with open(cache_path, "rb") as f:
-            cache = pickle.load(f)
-        if key in cache:
-            return cache[key]
-
-    top_terms = [term for term, *_ in results[:top_n]]
-    scores = []
-    for term in top_terms:
-        prompt = f"{query} に関連する症状名として、 {term} はどの程度妥当ですか？パーセンテージで答えてください（例: 80%）"
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.2
-        )
-        content = response["choices"][0]["message"]["content"]
-        percent = "".join(c for c in content if c.isdigit())
-        score = int(percent) if percent else 50
-        scores.append(score)
-
-    df = pd.DataFrame({
-        "term": top_terms,
-        "score": scores
-    })
-    df["確からしさ（％）"] = df["score"].round(1)
-    result_df = df.merge(pd.DataFrame(results, columns=["term", "raw_score", "source"]), on="term", how="left")
-
+def expand_query_gpt(query):
+    cache_path = "query_expansion_cache.pkl"
     if os.path.exists(cache_path):
         with open(cache_path, "rb") as f:
             cache = pickle.load(f)
     else:
         cache = {}
-    cache[key] = result_df
+
+    if query in cache:
+        return cache[query]
+
+    messages = [
+        {"role": "system", "content": "あなたは医療用語の検索支援AIです。"},
+        {"role": "user", "content": f"「{query}」という症状に関連する代表的な医学用語を3〜5個、日本語で挙げてください。"}
+    ]
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=messages
+        )
+        terms = response.choices[0].message.content.strip().split("、")
+        terms = [term.strip(" ・
+") for term in terms if term.strip()]
+    except Exception:
+        terms = []
+
+    cache[query] = terms
+    with open(cache_path, "wb") as f:
+        pickle.dump(cache, f)
+    return terms
+
+def rerank_results_v13(query, candidates):
+    cache_path = "score_cache.pkl"
+    if os.path.exists(cache_path):
+        with open(cache_path, "rb") as f:
+            cache = pickle.load(f)
+    else:
+        cache = {}
+
+    scored = []
+    for term, source in candidates:
+        key = (query, term)
+        if key in cache:
+            score = cache[key]
+        else:
+            prompt = f"以下の症状にどれだけ関連があるかを100点満点で評価してください。
+
+症状: {query}
+用語: {term}"
+            try:
+                response = openai.ChatCompletion.create(
+                    model="gpt-3.5-turbo",
+                    messages=[{"role": "user", "content": prompt}]
+                )
+                score = float(response.choices[0].message.content.strip().split()[0])
+            except Exception:
+                score = 0.0
+            cache[key] = score
+        scored.append((term, score, source))
+
     with open(cache_path, "wb") as f:
         pickle.dump(cache, f)
 
-    return result_df
+    return sorted(scored, key=lambda x: x[1], reverse=True)
 
-# MedDRAの階層情報を付加
-def add_hierarchy_info(results_df, term_master_df):
-    return results_df.merge(term_master_df, how="left", left_on="term", right_on="PT_Japanese")
+def predict_soc_keywords_with_gpt(query):
+    messages = [
+        {"role": "system", "content": "あなたは医療用語の検索支援AIです。"},
+        {"role": "user", "content": f"「{query}」という症状に関連しそうなSOCカテゴリ名を2〜4語、日本語で挙げてください（例：神経系障害、皮膚および皮下組織障害など）。"}
+    ]
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=messages
+        )
+        return [kw.strip() for kw in response.choices[0].message.content.strip().split("、")]
+    except Exception:
+        return []
 
-# term_master_dfの読み込み
+def filter_by_predicted_soc(df, soc_keywords):
+    if not soc_keywords:
+        return df
+    mask = df[["SOC", "HLGT", "HLT"]].apply(
+        lambda cols: cols.astype(str).str.contains("|".join(soc_keywords)).any(), axis=1
+    )
+    return df[mask].copy()
+
+def rescale_scores(df, col="score"):
+    min_val, max_val = df[col].min(), df[col].max()
+    if max_val > min_val:
+        df["確からしさ（％）"] = ((df[col] - min_val) / (max_val - min_val)) * 100
+    else:
+        df["確からしさ（％）"] = 100
+    df["確からしさ（％）"] = df["確からしさ（％）"].round(1)
+    return df
+
+def add_hierarchy_info(results, term_master_df):
+    df = pd.DataFrame(results, columns=["term", "score", "source"])
+    df = df.merge(term_master_df, left_on="term", right_on="PT_English", how="left")
+    return df
+
 def load_term_master_df(path):
     return pd.read_pickle(path)
+
+def search_meddra(query, top_k=10):
+    results = []
+    expanded = expand_query_gpt(query)
+    all_terms = [query] + synonym_df.get(query, {}).get("synonyms", []) + expanded
+    seen = set()
+
+    for term in all_terms:
+        if term not in seen:
+            seen.add(term)
+            vec = encode_query(term)
+            D, I = faiss_index.search(np.array([vec]), top_k)
+            for idx in I[0]:
+                results.append((meddra_terms[idx], "faiss"))
+    return results

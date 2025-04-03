@@ -10,8 +10,7 @@ from helper_functions import (
     search_meddra,
     rerank_results_v13,
     add_hierarchy_info,
-    load_term_master_df
-)
+    )
 
 # ページ設定
 st.set_page_config(page_title="MedDRA検索アプリ", layout="wide")

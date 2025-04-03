@@ -1,9 +1,11 @@
+
 import os
 import numpy as np
 import pandas as pd
 import openai
 from sentence_transformers import SentenceTransformer
 import faiss
+import pickle
 
 # クエリをエンコード（MiniLMモデル使用）
 def encode_query(query, model_name="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"):
@@ -14,18 +16,12 @@ def encode_query(query, model_name="sentence-transformers/paraphrase-multilingua
 def expand_query_gpt(query, model="gpt-3.5-turbo"):
     client = openai.OpenAI()
     prompt = (
-        f"以下は医療症状に関する言葉です。
-"
-        f"ユーザーの訴え：{query}
-"
-        f"これに関連する代表的なキーワードを3つ、短く簡潔に日本語で挙げてください。
-"
-        f"例：
-"
-        f"訴え：皮膚がかゆい → かゆみ, 発疹, アレルギー
-"
-        f"訴え：頭が痛い → 頭痛, ズキズキ, 偏頭痛
-"
+        f"以下は医療症状に関する言葉です。\n"
+        f"ユーザーの訴え：{query}\n"
+        f"これに関連する代表的なキーワードを3つ、短く簡潔に日本語で挙げてください。\n"
+        f"例：\n"
+        f"訴え：皮膚がかゆい → かゆみ, 発疹, アレルギー\n"
+        f"訴え：頭が痛い → 頭痛, ズキズキ, 偏頭痛\n"
         f"訴え：{query} →"
     )
 

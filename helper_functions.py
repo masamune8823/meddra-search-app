@@ -67,10 +67,7 @@ def rerank_results_v13(query, candidates):
         if key in cache:
             score = cache[key]
         else:
-            prompt = f"以下の症状にどれだけ関連があるかを100点満点で評価してください。
-
-症状: {query}
-用語: {term}"
+            prompt = f"以下の症状にどれだけ関連があるかを100点満点で評価してください。症状: {query} 候補: {term}"
             try:
                 response = openai.ChatCompletion.create(
                     model="gpt-3.5-turbo",

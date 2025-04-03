@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -12,66 +11,59 @@ from helper_functions import (
     predict_soc_keywords_with_gpt,
     filter_by_predicted_soc,
     rescale_scores,
+    add_hierarchy_info
 )
 
-# ✅ OpenAI APIキーは環境変数から取得
+# 🔐 OpenAI APIキー（環境変数から取得）
 openai.api_key = os.getenv("OPENAI_API_KEY")
-client = openai
 
-# 🔍 各種検索リソース読み込み
+# 📦 各種ファイル読み込み
 faiss_index = faiss.read_index("faiss_index.index")
 faiss_index_synonym = faiss.read_index("faiss_index_synonym.index")
 meddra_terms = np.load("meddra_terms.npy", allow_pickle=True)
 synonym_df = pd.read_pickle("synonym_df_cat1.pkl")
 term_master_df = pd.read_pickle("term_master_df.pkl")
 
-# ✅ Streamlit UI設定
-st.set_page_config(page_title="MedDRA検索アプリ", layout="wide")
-st.title("💊 MedDRA 自然言語検索アプリ")
-st.markdown("医師記載語・口語に対応したMedDRA PT検索支援ツール")
+# 🌐 Streamlitページ設定
+st.set_page_config(page_title="MedDRA 自然言語検索システム", layout="wide")
+st.title("💊 MedDRA 自然言語検索システム")
+st.write("自然文から適切なMedDRA PT用語を検索します。")
+query = st.text_input("🔍 症状や状態を入力してください（例：ズキズキする、吐き気など）")
 
-query = st.text_input("📝 症状を入力してください（例：ズキズキ、皮膚がかゆい）")
-use_gpt_filter = st.checkbox("🤖 意味的フィルタ（GPTベース）を使う", value=True)
-use_score_rescale = st.checkbox("🎯 スコアを0〜100％に補正して表示", value=True)
+# 🔘 オプション
+apply_soc_filter = st.checkbox("関連するSOCカテゴリでフィルタする", value=True)
+rescale_score = st.checkbox("確からしさスコアを0-100に補正する", value=True)
 
-if st.button("🚀 検索する") and query:
-    with st.spinner("検索中です...しばらくお待ちください"):
-        raw_results = search_meddra(
-            query=query,
-            faiss_index=faiss_index,
-            faiss_index_synonym=faiss_index_synonym,
-            synonym_df=synonym_df,
-            meddra_terms=meddra_terms
-        )
-        reranked = rerank_results_v13(
-            raw_results, query=query, client=client, top_n=10
-        )
+# 🚀 検索ボタン
+if st.button("検索実行") and query:
 
-        df = pd.DataFrame(reranked, columns=["term", "score", "source"])
-        df = df.merge(
-            term_master_df[["PT_Japanese", "HLT_Japanese", "HLGT_Japanese", "SOC_Japanese"]],
-            how="left",
-            left_on="term",
-            right_on="PT_Japanese"
-        ).rename(columns={
-            "HLT_Japanese": "HLT",
-            "HLGT_Japanese": "HLGT",
-            "SOC_Japanese": "SOC"
-        })
+    # 🔍 検索（synonym + FAISS + 再スコア）
+    results = search_meddra(
+        query=query,
+        faiss_index=faiss_index,
+        faiss_index_synonym=faiss_index_synonym,
+        meddra_terms=meddra_terms,
+        synonym_df=synonym_df
+    )
 
-        df = df[["term", "score", "HLT", "HLGT", "SOC", "source"]]
+    # ✅ スコア順にソート
+    reranked = rerank_results_v13(query, results)
 
-        if use_gpt_filter:
-            soc_keywords = predict_soc_keywords_with_gpt(query, client)
-            df = filter_by_predicted_soc(df, soc_keywords)
+    # 🧠 LLMベースでSOC予測 → フィルタ
+    if apply_soc_filter:
+        predicted_keywords = predict_soc_keywords_with_gpt(query)
+        reranked = filter_by_predicted_soc(reranked, predicted_keywords)
 
-        if use_score_rescale and not df.empty:
-            df = rescale_scores(df, score_col="score")
+    # 🎯 スコア再スケーリング
+    if rescale_score:
+        reranked = rescale_scores(reranked)
 
-    if not df.empty:
-        st.success("✅ 検索完了！")
-        st.dataframe(df, use_container_width=True)
-        csv = df.to_csv(index=False, encoding="utf-8-sig")
-        st.download_button("📥 結果をCSVでダウンロード", csv, file_name=f"meddra_results_{query}.csv")
-    else:
-        st.warning("結果が見つかりませんでした。もう少し具体的な表現で試してみてください。")
+    # 🧱 階層情報を付与（PT → HLT → HLGT → SOC）
+    final_results = add_hierarchy_info(reranked, term_master_df)
+
+    # 📊 結果表示
+    st.dataframe(final_results[["term", "確からしさ（％）", "HLT", "HLGT", "SOC", "source"]], use_container_width=True)
+
+    # 💾 ダウンロードリンク
+    csv = final_results.to_csv(index=False)
+    st.download_button("📥 検索結果をCSVでダウンロード", csv, file_name="meddra_search_results.csv", mime="text/csv")

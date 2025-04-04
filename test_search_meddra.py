@@ -27,3 +27,5 @@ results = search_meddra(test_query, faiss_index, meddra_terms, synonym_df, top_k
 # 結果出力
 print("🔍 検索結果:")
 print(results[["term", "score"]])
+
+# updated

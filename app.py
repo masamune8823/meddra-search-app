@@ -1,9 +1,10 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import os
 import faiss
+import openai
 import pickle
+import os
 
 from helper_functions import (
     encode_query,
@@ -14,86 +15,87 @@ from helper_functions import (
     predict_soc_keywords_with_gpt,
 )
 
-# --- ファイルパスの定義 ---
-index_path = "faiss_index.index"
+# データファイルの読み込み
 terms_path = "meddra_terms.npy"
 embed_path = "meddra_embeddings.npy"
+index_path = "faiss_index.index"
 synonym_path = "synonym_df_cat1.pkl"
-term_master_path = "term_master_df.pkl"
+hierarchy_path = "term_master_df.pkl"
 
-# --- データの読み込み ---
-try:
-    faiss_index = faiss.read_index(index_path)
-    meddra_terms = np.load(terms_path, allow_pickle=True)
-    meddra_embeddings = np.load(embed_path)
-    with open(synonym_path, "rb") as f:
-        synonym_df = pickle.load(f)
-    with open(term_master_path, "rb") as f:
-        term_master_df = pickle.load(f)
-except Exception as e:
-    st.error(f"初期データの読み込みに失敗しました: {e}")
-    st.stop()
+meddra_terms = np.load(terms_path, allow_pickle=True)
+meddra_embeddings = np.load(embed_path)
+faiss_index = faiss.read_index(index_path)
 
-# --- Streamlit UI ---
+with open(synonym_path, "rb") as f:
+    synonym_df = pickle.load(f)
+
+with open(hierarchy_path, "rb") as f:
+    term_master_df = pickle.load(f)
+
+# Streamlit アプリ本体
 st.title("🔍 MedDRA検索アプリ")
-
-query = st.text_input("検索語を入力してください（例：皮膚がかゆい）", "")
-
-use_filter = st.checkbox("🧠 GPTによるSOC予測でフィルタリング（推奨）", value=False)
+query = st.text_input("検索語を入力してください（例：ズキズキ）")
+use_filter = st.checkbox("🧠 GPTによるSOC予測でフィルタリング（推奨）", value=True)
 
 if st.button("検索") and query:
     with st.spinner("検索中..."):
 
-        # 🔍 類似検索（synonym展開込み）
-        results = search_meddra(query, faiss_index, meddra_terms, synonym_df, top_k=20)
-
-        if results.empty:
-            st.warning("候補が見つかりませんでした。")
-            st.stop()
-
-        # 🎯 GPT再スコアリング（Top10）
-        reranked = rerank_results_v13(query, results, top_n=10)
-
-        # 🧱 階層情報の追加（term_master_df使用）
-        final_results = add_hierarchy_info(reranked, term_master_df)
-
-        # 🧠 GPTによるSOCキーワード予測でフィルタリング（任意）
+        # GPTでSOCカテゴリを予測（必要な場合）
+        predicted_keywords = []
         if use_filter:
             try:
                 predicted_keywords = predict_soc_keywords_with_gpt(query)
                 st.markdown("#### 🧠 GPT予測キーワード（整形後）")
                 st.write(predicted_keywords)
+            except Exception as e:
+                st.warning(f"GPTフィルタ処理中にエラーが発生しました: {e}")
 
-                filter_cols = ["SOC_Japanese", "HLGT_Japanese", "HLT_Japanese"]
-                filter_cols = [col for col in filter_cols if col in final_results.columns]
+        # FAISS検索（+synonym対応済み）
+        search_results = []
+        for kw in [query] + predicted_keywords:
+            try:
+                result = search_meddra(kw, faiss_index, meddra_terms, synonym_df, top_k=20)
+                search_results.append(result)
+            except Exception as e:
+                st.warning(f"検索処理でエラー: {e}")
 
-                if filter_cols:
-                    mask = final_results[filter_cols].astype(str).apply(
-                        lambda x: x.str.contains("|".join(predicted_keywords)), axis=1
+        if search_results:
+            all_results = pd.concat(search_results).drop_duplicates(subset=["term"]).reset_index(drop=True)
+        else:
+            all_results = pd.DataFrame(columns=["term", "score"])
+
+        # GPT再スコアリング（Top10）
+        reranked = rerank_results_v13(query, all_results, top_n=10)
+
+        # MedDRA階層情報付加
+        reranked = add_hierarchy_info(reranked, term_master_df)
+
+        # GPTフィルタ適用（任意）
+        if use_filter and predicted_keywords:
+            try:
+                reranked = reranked[
+                    reranked[["SOC_Japanese", "HLGT_Japanese", "HLT_Japanese"]].astype(str).apply(
+                        lambda x: x.str.contains("|".join(predicted_keywords)).any(), axis=1
                     )
-                    final_results = final_results[mask]
-                else:
-                    st.warning("階層情報が不足しているため、フィルタリングをスキップしました。")
+                ]
             except Exception as e:
                 st.warning(f"フィルタ処理でエラーが発生しました: {e}")
 
-        # 🔢 スコア整形（0〜100％）
-        final_results = rescale_scores(final_results)
+        # スコア整形
+        reranked = rescale_scores(reranked)
 
-        # 📋 表示整形
-        final_results = final_results.rename(columns={
+        # 列名変換＋表示
+        reranked = reranked.rename(columns={
             "term": "用語",
-            "確からしさ（％）": "確からしさ（％）",
+            "score": "確からしさ（％）",
             "HLT_Japanese": "HLT",
             "HLGT_Japanese": "HLGT",
             "SOC_Japanese": "SOC"
         })
-
-        display_cols = [col for col in ["用語", "確からしさ（％）", "HLT", "HLGT", "SOC"] if col in final_results.columns]
-
+        display_cols = [col for col in ["用語", "確からしさ（％）", "HLT", "HLGT", "SOC"] if col in reranked.columns]
         st.success("検索完了")
-        st.dataframe(final_results[display_cols], use_container_width=True)
+        st.dataframe(reranked[display_cols])
 
-        # 📥 CSVダウンロード
-        csv = final_results[display_cols].to_csv(index=False).encode("utf-8")
+        # ダウンロード
+        csv = reranked[display_cols].to_csv(index=False).encode("utf-8")
         st.download_button("📥 結果をCSVでダウンロード", data=csv, file_name="meddra_results.csv", mime="text/csv")

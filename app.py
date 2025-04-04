@@ -62,7 +62,7 @@ if st.button("検索"):
             all_results = pd.concat(search_results).drop_duplicates(subset=["term"]).reset_index(drop=True)
 
         with st.spinner("再スコアリング中（GPT）..."):
-            reranked = rerank_results_v13(query, all_results)
+            reranked = rerank_results_v13(query, all_results.head(10))  # ✅ Top10に制限
             reranked["score"] = rescale_scores(reranked["Relevance"].tolist())
 
         with st.spinner("階層情報を付加中..."):

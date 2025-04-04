@@ -71,6 +71,15 @@ if st.button("検索"):
             final_results = add_hierarchy_info(reranked, term_master_df)
             st.write("🧩 final_results の列一覧:", final_results.columns.tolist())  # ← 🔍 SOC列があるか確認
 
+            # ✅ ここから追加：マージ確認ログ（STEP 5-B）
+            st.write("🔍 マージ対象語数:", len(reranked))
+            st.write("🔍 階層付与後件数:", len(final_results))
+
+            unmatched_terms = set(reranked["term"]) - set(final_results["PT_English"].dropna())
+            if unmatched_terms:
+                st.warning("🧯 階層マスタに一致しなかった用語（PT_English）:")
+                st.write(list(unmatched_terms))
+
         if use_soc_filter:
              try:
                 soc_prediction = predict_soc_category(query)

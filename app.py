@@ -75,7 +75,10 @@ if st.button("検索"):
              try:
                 soc_prediction = predict_soc_category(query)
                 # ✅ 修正：SOC_Japanese にフィルタを適用
-                final_results = final_results[final_results["SOC_Japanese"].str.contains(soc_prediction)]
+                # 🔍 NaN対策 + フィルタ
+                final_results = final_results[final_results["SOC_Japanese"].fillna("").astype(str).str.contains(soc_prediction)]
+                st.write(f"🔍 フィルタ前: {len(final_results)} 件 → フィルタ後: {len(final_results[final_results['SOC_Japanese'].fillna('').str.contains(soc_prediction)])} 件")
+
              except Exception as e:
                 st.warning(f"フィルタ処理でエラーが発生しました: {e}")
 

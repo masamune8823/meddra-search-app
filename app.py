@@ -63,7 +63,7 @@ if st.button("検索"):
 
         with st.spinner("再スコアリング中（GPT）..."):
             reranked = rerank_results_v13(query, all_results)
-            reranked = rescale_scores(reranked)
+            reranked["score"] = rescale_scores(reranked["Relevance"].tolist())
 
         with st.spinner("階層情報を付加中..."):
             final_results = add_hierarchy_info(reranked, term_master_df)

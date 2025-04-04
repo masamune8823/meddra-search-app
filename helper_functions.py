@@ -29,7 +29,7 @@ def search_meddra(query, faiss_index, meddra_terms, synonym_df=None, top_k=10):
         if idx < len(meddra_terms):
             term = meddra_terms[idx]
             score = float(distances[0][i])
-            results.append({"Term": term, "Score": score})
+            results.append({"term": term, "score": score})
     return pd.DataFrame(results)
 
 # 回答からスコア抽出（単純実装）
@@ -57,7 +57,7 @@ def rerank_results_v13(query, candidates, score_cache=None):
 
     scored = []
     for i, row in candidates.iterrows():
-        term = row["Term"]
+        term = row["term"]
         cache_key = (query, term)
         if cache_key in score_cache:
             score = score_cache[cache_key]
@@ -120,6 +120,6 @@ def format_keywords(keywords):
 
 # MedDRA階層情報を付与
 def add_hierarchy_info(df, term_master_df):
-    merged = pd.merge(df, term_master_df, how="left", left_on="Term", right_on="PT_English")
+    merged = pd.merge(df, term_master_df, how="left", left_on="term", right_on="PT_English")
     return merged
 # update

@@ -1,3 +1,6 @@
+# ✅ ファイルの先頭に一度だけ書く
+from openai import OpenAI
+client = OpenAI()
 
 import os
 import re
@@ -88,15 +91,10 @@ def predict_soc_category(query):
         {"role": "user", "content": f"次の症状に最も関連するMedDRAのSOCカテゴリを教えてください:「{query}」"}
     ]
     try:
-        # 修正後（OpenAI v1対応の正しい使い方）
-        from openai import OpenAI
-        client = OpenAI()
-
-        # その後は以下のように使ってOKです
         response = client.chat.completions.create(
-        model="gpt-3.5-turbo",
-        messages=messages,
-        temperature=0,
+            model="gpt-3.5-turbo",
+            messages=messages,
+            temperature=0,
         )
         return response["choices"][0]["message"]["content"]
     except Exception as e:

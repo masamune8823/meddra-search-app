@@ -76,7 +76,7 @@ if st.button("検索"):
                 soc_prediction = predict_soc_category(query)
                 # ✅ 修正：SOC_Japanese にフィルタを適用
                 final_results = final_results[final_results["SOC_Japanese"].str.contains(soc_prediction)]
-            except Exception as e:
+             except Exception as e:
                 st.warning(f"フィルタ処理でエラーが発生しました: {e}")
 
         st.success("検索完了")

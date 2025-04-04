@@ -100,17 +100,17 @@ if st.button("検索"):
         ]
         available_cols = [col for col in display_cols if col in final_results.columns]
 
-       # 表示（列名も日本語に置き換え）
-       st.dataframe(
-           final_results[available_cols].rename(columns={
-               "term": "用語（再スコア対象語）",
-               "score": "確からしさ (%)",
-               "PT_Japanese": "PT（日本語）",
-               "HLT_Japanese": "HLT（日本語）",
-               "HLGT_Japanese": "HLGT（日本語）",
-               "SOC_Japanese": "SOC（日本語）"
-           })
-       )
+        # 表示（列名も日本語に置き換え）
+        st.dataframe(
+            final_results[available_cols].rename(columns={
+                "term": "用語（再スコア対象語）",
+                "score": "確からしさ (%)",
+                "PT_Japanese": "PT（日本語）",
+                "HLT_Japanese": "HLT（日本語）",
+                "HLGT_Japanese": "HLGT（日本語）",
+                "SOC_Japanese": "SOC（日本語）"
+            })
+        )
 
         # CSV生成時に encoding を指定する
         csv = final_results.to_csv(index=False, encoding="utf-8-sig")

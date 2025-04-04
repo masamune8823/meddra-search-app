@@ -86,8 +86,11 @@ if st.button("検索"):
               final_results[available_cols].rename(columns={"term": "用語", "score": "確からしさ (%)"})
         )
 
-        csv = final_results.to_csv(index=False).encode("utf-8")
-        st.download_button("\ud83d\udcc6 結果をCSVでダウンロード", data=csv, file_name="meddra_results.csv", mime="text/csv")
+        # CSV生成時に encoding を指定する
+        csv = final_results.to_csv(index=False, encoding="utf-8-sig")
+
+        # ダウンロードボタン
+        st.download_button("📆 結果をCSVでダウンロード", data=csv, file_name="meddra_results.csv", mime="text/csv")
         
         # 🔍 テスト用ボタン（← ここが追記部分）
         if st.button("🔍 テスト実行（ズキズキ）"):

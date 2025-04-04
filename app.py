@@ -13,6 +13,7 @@ from helper_functions import (
     rescale_scores,
     predict_soc_category,
     format_keywords,
+    suggest_similar_terms,      
 )
 
 # ---------------- 初期設定 ---------------- #
@@ -129,16 +130,3 @@ if st.button("検索"):
             st.write("💡 入力語に意味的に近い用語候補:")
             for i, term in enumerate(similar_terms, 1):
                 st.markdown(f"{i}. {term}")
-
-        from helper_functions import (
-            encode_query,
-            search_meddra,
-            rerank_results_batch,
-            add_hierarchy_info,
-            rescale_scores,
-            predict_soc_category,
-            format_keywords,
-            suggest_similar_terms,  # ✅ これを忘れず追加
-        )
-
-

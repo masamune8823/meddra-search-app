@@ -21,10 +21,20 @@ st.title("\U0001f50d MedDRA検索アプリ")
 # ---------------- ファイル読み込み ---------------- #
 @st.cache_resource
 def load_assets():
-    faiss_index = faiss.read_index("faiss_index.index")
-    meddra_terms = np.load("meddra_terms.npy", allow_pickle=True)
-    synonym_df = pickle.load(open("synonym_df_cat1.pkl", "rb"))
-    term_master_df = pickle.load(open("term_master_df.pkl", "rb"))
+    try:
+        faiss_index = faiss.read_index("faiss_index.index")
+    except Exception as e:
+        st.error(f"FAISSインデックスの読み込みに失敗しました: {e}")
+        raise e
+
+    try:
+        meddra_terms = np.load("meddra_terms.npy", allow_pickle=True)
+        synonym_df = pickle.load(open("synonym_df_cat1.pkl", "rb"))
+        term_master_df = pickle.load(open("term_master_df.pkl", "rb"))
+    except Exception as e:
+        st.error(f"データファイルの読み込みに失敗しました: {e}")
+        raise e
+
     return faiss_index, meddra_terms, synonym_df, term_master_df
 
 faiss_index, meddra_terms, synonym_df, term_master_df = load_assets()

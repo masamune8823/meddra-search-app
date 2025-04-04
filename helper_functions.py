@@ -123,3 +123,4 @@ def predict_soc_keywords_with_gpt(query):
         return result_clean
     except Exception as e:
         return []
+# updated

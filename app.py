@@ -21,14 +21,10 @@ st.title("\U0001f50d MedDRA検索アプリ")
 # ---------------- ファイル読み込み ---------------- #
 @st.cache_resource
 def load_assets():
-    with open("search_assets_part_a", "rb") as f:
-        faiss_index = pickle.load(f)
-    with open("search_assets_part_b", "rb") as f:
-        meddra_terms = pickle.load(f)
-    with open("search_assets_part_c", "rb") as f:
-        synonym_df = pickle.load(f)
-    with open("search_assets_part_d", "rb") as f:
-        term_master_df = pickle.load(f)
+    faiss_index = faiss.read_index("data/faiss_index.index")
+    meddra_terms = np.load("data/meddra_terms.npy", allow_pickle=True)
+    synonym_df = pickle.load(open("data/synonym_df_cat1.pkl", "rb"))
+    term_master_df = pickle.load(open("data/term_master_df.pkl", "rb"))
     return faiss_index, meddra_terms, synonym_df, term_master_df
 
 faiss_index, meddra_terms, synonym_df, term_master_df = load_assets()

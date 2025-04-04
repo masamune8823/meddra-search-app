@@ -51,7 +51,7 @@ if st.button("検索"):
     else:
         with st.spinner("キーワードを解析中..."):
             predicted_keywords = predict_soc_category(query)
-            st.subheader("\ud83e\udd13 GPT予測キーワード（整形後）")
+            st.subheader("🧠 GPT予測キーワード（整形後）")
             st.write(predicted_keywords)
 
         with st.spinner("FAISSで用語検索中..."):

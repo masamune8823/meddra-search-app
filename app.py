@@ -77,7 +77,14 @@ if st.button("検索"):
                 st.warning(f"フィルタ処理でエラーが発生しました: {e}")
 
         st.success("検索完了")
-        st.dataframe(final_results[["term", "score", "HLT", "HLGT", "SOC"]].rename(columns={"term": "用語", "score": "確からしさ (%)"}))
+
+        expected_cols = ["term", "score", "HLT", "HLGT", "SOC"]
+        available_cols = [col for col in expected_cols if col in final_results.columns]
+
+       # 表示
+       st.dataframe(
+       final_results[available_cols].rename(columns={"term": "用語", "score": "確からしさ (%)"})
+)
 
         csv = final_results.to_csv(index=False).encode("utf-8")
         st.download_button("\ud83d\udcc6 結果をCSVでダウンロード", data=csv, file_name="meddra_results.csv", mime="text/csv")

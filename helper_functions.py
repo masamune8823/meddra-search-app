@@ -67,7 +67,11 @@ def rerank_results_batch(query, candidates, score_cache=None):
         term = row["term"]
         if (query, term) not in score_cache:
             new_terms.append(term)
-
+    # ✅ スコア対象の語数と中身をStreamlitで表示（デバッグ用）
+    import streamlit as st
+    st.write("🧪 スコア未評価語数:", len(new_terms), "件")
+    st.write("🧪 未評価語リスト:", new_terms)
+    
     if new_terms:
         # 🔧 プロンプト組み立て（1メッセージに全term）
         prompt = f"""以下の記述「{query}」に対して、各用語がどれくらい意味的に一致するかを教えてください。

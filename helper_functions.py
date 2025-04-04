@@ -1,81 +1,77 @@
+
 import os
 import re
 import pickle
 import numpy as np
 import pandas as pd
-import faiss
 import openai
 import torch
+from sentence_transformers import SentenceTransformer, util
 
-from sentence_transformers import SentenceTransformer
-from sklearn.preprocessing import MinMaxScaler
+# クエリをエンコードする
+def encode_query(query, model_name="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"):
+    model = SentenceTransformer(model_name)
+    return model.encode(query, convert_to_tensor=True)
 
-# モデルの初期化
-model = SentenceTransformer("sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
-openai.api_key = os.getenv("OPENAI_API_KEY", "sk-xxx")  # 本番ではsecrets管理
+# クエリ拡張（OpenAI GPT-3.5使用）
+def expand_query_gpt(text, api_key=None):
+    openai.api_key = api_key or os.getenv("OPENAI_API_KEY")
+    prompt = f"以下の日本語の症状から、英語の医学的キーワードを3つ予測してください：{text}"
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.7,
+        )
+        result = response["choices"][0]["message"]["content"]
+        return [kw.strip() for kw in result.split(",") if kw.strip()]
+    except Exception as e:
+        print("OpenAI API error:", e)
+        return []
 
-# クエリのベクトル化
-def encode_query(text):
-    return model.encode([text])[0]
+# FAISS + 類義語辞書による検索
+def search_meddra(query, faiss_index, terms, synonym_df, top_k=20):
+    synonyms = synonym_df.get(query, [query])
+    model = SentenceTransformer("sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
+    vectors = model.encode(synonyms)
+    all_scores = []
+    for vector in vectors:
+        D, I = faiss_index.search(np.array([vector]), top_k)
+        for i, d in zip(I[0], D[0]):
+            all_scores.append((i, float(d)))
+    all_scores = sorted(all_scores, key=lambda x: x[1])
+    seen = set()
+    unique_results = []
+    for idx, score in all_scores:
+        if idx not in seen:
+            unique_results.append({"term": terms[idx], "score": score})
+            seen.add(idx)
+    return pd.DataFrame(unique_results)
 
-# クエリ拡張（GPT）
-def expand_query_gpt(query):
-    prompt = f"以下の日本語の症状から、英語の医学的キーワードを3つ予測してください（カンマ区切り）:
-「{query}」"
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.5
-    )
-    keywords = response["choices"][0]["message"]["content"].strip()
-    return [kw.strip() for kw in keywords.split(",")]
+# スコア再スケーリング
+def rescale_scores(scores):
+    min_score = min(scores)
+    max_score = max(scores)
+    if max_score == min_score:
+        return [100.0] * len(scores)
+    return [100 * (s - min_score) / (max_score - min_score) for s in scores]
 
-# クエリ拡張語の整形（Streamlit UI表示用）
+# スコア再ランキング（GPTではなくMiniLMで処理する想定）
+def rerank_results_v13(query, candidates, model_name="cross-encoder/ms-marco-MiniLM-L-6-v2"):
+    from sentence_transformers import CrossEncoder
+    model = CrossEncoder(model_name)
+    pairs = [[query, c] for c in candidates]
+    scores = model.predict(pairs)
+    return scores
+
+# 階層情報の付与
+def add_hierarchy_info(df, hierarchy_df):
+    return pd.merge(df, hierarchy_df, how="left", left_on="term", right_on="PT_English")
+
+# 拡張語表示用フォーマット整形
 def format_keywords(keywords):
-    return "、".join(keywords)
+    return ", ".join(keywords)
 
-# 検索処理
-def search_meddra(query, faiss_index, meddra_terms, synonym_df, top_k=20):
-    query_vec = encode_query(query).astype("float32")
-    _, indices = faiss_index.search(np.array([query_vec]), top_k)
-    results = pd.DataFrame(meddra_terms[indices[0]], columns=["term"])
-    results["query"] = query
-    return results
-
-# スコア再ランキング（OpenAI GPT）
-def rerank_results_v13(query, candidates, max_items=10):
-    top_terms = candidates["term"].tolist()[:max_items]
-    messages = [
-        {"role": "system", "content": "医療用語の関連性をスコアで評価してください（0〜100）"},
-        {"role": "user", "content": f"症状: {query}\n候補: {', '.join(top_terms)}"}
-    ]
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=messages,
-        temperature=0.3
-    )
-    content = response["choices"][0]["message"]["content"]
-    scores = [int(s) for s in re.findall(r"\d+", content)][:len(top_terms)]
-    candidates = candidates.copy()
-    candidates["score"] = scores + [0] * (len(candidates) - len(scores))
-    return candidates
-
-# スコア正規化（0〜100）
-def rescale_scores(df, score_col="score"):
-    scaler = MinMaxScaler(feature_range=(0, 100))
-    df[score_col] = scaler.fit_transform(df[[score_col]])
-    return df
-
-# 階層情報の追加（term_master_dfよりマージ）
-def add_hierarchy_info(df, term_master_df):
-    return pd.merge(df, term_master_df, how="left", left_on="term", right_on="PT_English")
-
-# GPTによるSOCカテゴリの推論
-def predict_soc_category(query):
-    prompt = f"この症状「{query}」に最も関連するSOCカテゴリ（MedDRAの大分類）を日本語で1つだけ返答してください。"
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0
-    )
-    return response["choices"][0]["message"]["content"].strip()
+# SOCカテゴリ予測（仮のダミー実装）
+def predict_soc_category(text):
+    return "General disorders and administration site conditions"

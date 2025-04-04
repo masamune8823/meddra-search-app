@@ -82,10 +82,15 @@ def rerank_results_batch(query, candidates, score_cache=None):
             messages=messages,
             temperature=0,
         )
-        # ✅ レスポンスの中身を表示（ここ追加）
+        
+        # ✅ デバッグ用ログ（前後を含めて明示）
         import streamlit as st
         st.subheader("🧾 GPTレスポンス内容（デバッグ用）")
-        st.code(response.choices[0].message.content)
+        st.write("🔍 GPTからの生レスポンス（全体構造）")
+        st.write(response)  # ← response全体を表示（構造確認）
+
+        st.write("📝 GPTからのメッセージ本文（choices[0].message.content）")
+        st.code(response.choices[0].message.content)  # ← 実際の返答テキスト表示
 
         # 返答（1つ）から全体の内容を取得
         content = response.choices[0].message.content
@@ -93,6 +98,7 @@ def rerank_results_batch(query, candidates, score_cache=None):
         # 返答の中から個別に数値を抽出（改行 or カンマ区切り想定）
         lines = [l.strip() for l in content.strip().split("\n") if l.strip()]
         for i, line in enumerate(lines):
+            st.write(f"[{i}] {line}")  # ← 🔍 どんな行かを可視化
             if i in index_map:
                 term = index_map[i]
                 try:

@@ -82,6 +82,11 @@ def rerank_results_batch(query, candidates, score_cache=None):
             messages=messages,
             temperature=0,
         )
+        # ✅ レスポンスの中身を表示（ここ追加）
+        import streamlit as st
+        st.subheader("🧾 GPTレスポンス内容（デバッグ用）")
+        st.code(response.choices[0].message.content)
+
         # 返答（1つ）から全体の内容を取得
         content = response.choices[0].message.content
 

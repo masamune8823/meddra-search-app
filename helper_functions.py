@@ -32,6 +32,24 @@ def search_meddra(query, faiss_index, meddra_terms, synonym_df=None, top_k=10):
             results.append({"Term": term, "Score": score})
     return pd.DataFrame(results)
 
+# 回答からスコア抽出（単純実装）
+def extract_score_from_response(response_text):
+    for word in ["10", "９", "8", "７", "6", "5", "4", "3", "2", "1", "0"]:
+        if word in response_text:
+            try:
+                return float(word)
+            except:
+                continue
+    return 5.0  # fallback
+
+# スコアの再スケーリング
+def rescale_scores(scores):
+    min_score = min(scores)
+    max_score = max(scores)
+    if max_score == min_score:
+        return [100.0 for _ in scores]
+    return [100.0 * (s - min_score) / (max_score - min_score) for s in scores]
+
 # 再ランキング処理（GPT使用）
 def rerank_results_v13(query, candidates, score_cache=None):
     if score_cache is None:
@@ -63,24 +81,6 @@ def rerank_results_v13(query, candidates, score_cache=None):
     df = pd.DataFrame(scored, columns=["Term", "Relevance"])
     return df.sort_values(by="Relevance", ascending=False)
 
-# 回答からスコア抽出（単純実装）
-def extract_score_from_response(response_text):
-    for word in ["10", "９", "8", "７", "6", "5", "4", "3", "2", "1", "0"]:
-        if word in response_text:
-            try:
-                return float(word)
-            except:
-                continue
-    return 5.0  # fallback
-
-# スコアの再スケーリング
-def rescale_scores(scores):
-    min_score = min(scores)
-    max_score = max(scores)
-    if max_score == min_score:
-        return [100.0 for _ in scores]
-    return [100.0 * (s - min_score) / (max_score - min_score) for s in scores]
-
 # GPTでSOCカテゴリを予測
 def predict_soc_category(query):
     messages = [
@@ -96,3 +96,31 @@ def predict_soc_category(query):
         return response["choices"][0]["message"]["content"]
     except Exception as e:
         return "エラー: " + str(e)
+
+# クエリ拡張（GPT使用）
+def expand_query_gpt(query):
+    messages = [
+        {"role": "system", "content": "あなたは日本語医療文を英語のキーワードに変換するアシスタントです。"},
+        {"role": "user", "content": f"以下の日本語の症状から、英語の医学的キーワードを3つ予測してください。
+
+症状: {query}"}
+    ]
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=messages,
+            temperature=0,
+        )
+        text = response["choices"][0]["message"]["content"]
+        return [kw.strip() for kw in text.split(",") if kw.strip()]
+    except Exception as e:
+        return ["headache", "nausea", "fever"]
+
+# 表示整形（キーワードリスト）
+def format_keywords(keywords):
+    return "、".join(keywords)
+
+# MedDRA階層情報を付与
+def add_hierarchy_info(df, term_master_df):
+    merged = pd.merge(df, term_master_df, how="left", left_on="Term", right_on="PT_English")
+    return merged

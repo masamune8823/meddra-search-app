@@ -78,7 +78,7 @@ def rerank_results_v13(query, candidates, score_cache=None):
             score_cache[cache_key] = score
         scored.append((term, score))
 
-    df = pd.DataFrame(scored, columns=["Term", "Relevance"])
+    df = pd.DataFrame(scored, columns=["term", "Relevance"])
     return df.sort_values(by="Relevance", ascending=False)
 
 # GPTでSOCカテゴリを予測

@@ -67,7 +67,7 @@ def rerank_results_v13(query, candidates, score_cache=None):
                 {"role": "user", "content": f"以下の記述は、用語「{term}」とどのくらい意味的に一致しますか？ 記述: {query}"}
             ]
             try:
-                response = openai.ChatCompletion.create(
+                response = client.chat.completions.create(
                     model="gpt-3.5-turbo",
                     messages=messages,
                     temperature=0,
@@ -88,7 +88,7 @@ def predict_soc_category(query):
         {"role": "user", "content": f"次の症状に最も関連するMedDRAのSOCカテゴリを教えてください:「{query}」"}
     ]
     try:
-        response = openai.ChatCompletion.create(
+        response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=messages,
             temperature=0,
@@ -104,7 +104,7 @@ def expand_query_gpt(query):
         {"role": "user", "content": f"以下の日本語の症状から、英語の医学的キーワードを3つ予測してください。\n\n症状: {query}"}
     ]
     try:
-        response = openai.ChatCompletion.create(
+        response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=messages,
             temperature=0,

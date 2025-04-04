@@ -53,34 +53,55 @@ def rescale_scores(scores):
         return [100.0 for _ in scores]
     return [100.0 * (s - min_score) / (max_score - min_score) for s in scores]
 
-# 再ランキング処理（GPT使用）
-def rerank_results_v13(query, candidates, score_cache=None):
+# ✅ 再ランキング処理（GPT一括呼び出し版）
+def rerank_results_batch(query, candidates, score_cache=None):
     if score_cache is None:
         score_cache = {}
 
-    scored = []
-    for i, row in candidates.iterrows():
+    # Top10件に絞る
+    top_candidates = candidates.head(10)
+
+    messages = [{"role": "system", "content": "あなたは医療用語の関連性判定モデルです。"}]
+    index_map = {}  # idxとtermの対応を記録
+
+    for i, row in top_candidates.iterrows():
         term = row["term"]
         cache_key = (query, term)
-        if cache_key in score_cache:
-            score = score_cache[cache_key]
-        else:
-            messages = [
-                {"role": "system", "content": "あなたは医療用語の関連性判定モデルです。"},
-                {"role": "user", "content": f"以下の記述は、用語「{term}」とどのくらい意味的に一致しますか？ 記述: {query}"}
-            ]
-            try:
-                response = client.chat.completions.create(
-                    model="gpt-3.5-turbo",
-                    messages=messages,
-                    temperature=0,
-                )
-                score = extract_score_from_response(response.choices[0].message.content)
-            except Exception as e:
-                score = 5.0  # Fallback
-            score_cache[cache_key] = score
-        scored.append((term, score))
 
+        if cache_key in score_cache:
+            continue  # スコア済み
+
+        prompt = f"用語「{term}」は、以下の記述とどれくらい意味的に一致しますか？ 一致度（0～10）を数値で教えてください。\n記述: {query}"
+        messages.append({"role": "user", "content": prompt})
+        index_map[len(messages) - 2] = term  # systemを除いたindex
+
+    # GPT呼び出し（1回）
+    try:
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=messages,
+            temperature=0,
+        )
+        # 返答（1つ）から全体の内容を取得
+        content = response.choices[0].message.content
+
+        # 返答の中から個別に数値を抽出（改行 or カンマ区切り想定）
+        lines = [l.strip() for l in content.strip().split("\n") if l.strip()]
+        for i, line in enumerate(lines):
+            if i in index_map:
+                term = index_map[i]
+                try:
+                    score = extract_score_from_response(line)
+                    score_cache[(query, term)] = score
+                except:
+                    score_cache[(query, term)] = 5.0  # fallback
+    except Exception as e:
+        # 全体失敗時のfallback
+        for term in top_candidates["term"]:
+            score_cache[(query, term)] = 5.0
+
+    # スコアをまとめて返す
+    scored = [(term, score_cache.get((query, term), 5.0)) for term in top_candidates["term"]]
     df = pd.DataFrame(scored, columns=["term", "Relevance"])
     return df.sort_values(by="Relevance", ascending=False)
 

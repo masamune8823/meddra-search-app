@@ -78,4 +78,5 @@ if st.button("検索"):
         if st.button("🔍 テスト実行（ズキズキ）"):
             from test_meddra_full_pipeline import run_test_pipeline
             run_test_pipeline()
+        # updated
 

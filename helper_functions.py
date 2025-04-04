@@ -75,7 +75,7 @@ def rerank_results_v13(query, candidates, score_cache=None):
                     messages=messages,
                     temperature=0,
                 )
-                score = extract_score_from_response(response["choices"][0]["message"]["content"])
+                score = extract_score_from_response(response.choices[0].message.content)
             except Exception as e:
                 score = 5.0  # Fallback
             score_cache[cache_key] = score
@@ -96,7 +96,7 @@ def predict_soc_category(query):
             messages=messages,
             temperature=0,
         )
-        return response["choices"][0]["message"]["content"]
+        return response.choices[0].message.content
     except Exception as e:
         return "エラー: " + str(e)
 
@@ -112,7 +112,7 @@ def expand_query_gpt(query):
             messages=messages,
             temperature=0,
         )
-        text = response["choices"][0]["message"]["content"]
+        response_text = response.choices[0].message.content
         return [kw.strip() for kw in text.split(",") if kw.strip()]
     except Exception as e:
         return ["headache", "nausea", "fever"]

@@ -113,7 +113,7 @@ def expand_query_gpt(query):
             temperature=0,
         )
         response_text = response.choices[0].message.content
-        return [kw.strip() for kw in text.split(",") if kw.strip()]
+        return [kw.strip() for kw in response_text.split(",") if kw.strip()]
     except Exception as e:
         return ["headache", "nausea", "fever"]
 

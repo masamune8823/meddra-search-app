@@ -74,7 +74,8 @@ if st.button("検索"):
         csv = final_results.to_csv(index=False).encode("utf-8")
         st.download_button("\ud83d\udcc6 結果をCSVでダウンロード", data=csv, file_name="meddra_results.csv", mime="text/csv")
         
-       if st.button("🔍 テスト実行（ズキズキ）"):
-    	from test_meddra_full_pipeline import run_test_pipeline
-    	run_test_pipeline()
+        # 🔍 テスト用ボタン（← ここが追記部分）
+        if st.button("🔍 テスト実行（ズキズキ）"):
+            from test_meddra_full_pipeline import run_test_pipeline
+            run_test_pipeline()
 

@@ -118,15 +118,27 @@ if st.button("検索"):
         # ダウンロードボタン
         st.download_button("📆 結果をCSVでダウンロード", data=csv, file_name="meddra_results.csv", mime="text/csv")
         
-        # 🔍 テスト用ボタン（← ここが追記部分）
+        # 🔍 テスト用ボタン
         if st.button("🔍 テスト実行（ズキズキ）"):
             from test_meddra_full_pipeline import run_test_pipeline
             run_test_pipeline()
 
-       # ✅ ステップA：意味的に近い用語候補を表示（ズキズキ → 頭痛など）
-       with st.expander("🧠 類似語候補を表示（ベクトル検索）"):
-           similar_terms = suggest_similar_terms(query, faiss_index, meddra_terms, top_k=10)
-           st.write("💡 入力語に意味的に近い用語候補:")
-           for i, term in enumerate(similar_terms, 1):
-               st.markdown(f"{i}. {term}")
+        # ✅ ステップA：意味的に近い用語候補を表示（ズキズキ → 頭痛など）
+        with st.expander("🧠 類似語候補を表示（ベクトル検索）"):
+            similar_terms = suggest_similar_terms(query, faiss_index, meddra_terms, top_k=10)
+            st.write("💡 入力語に意味的に近い用語候補:")
+            for i, term in enumerate(similar_terms, 1):
+                st.markdown(f"{i}. {term}")
+
+        from helper_functions import (
+            encode_query,
+            search_meddra,
+            rerank_results_batch,
+            add_hierarchy_info,
+            rescale_scores,
+            predict_soc_category,
+            format_keywords,
+            suggest_similar_terms,  # ✅ これを忘れず追加
+        )
+
 

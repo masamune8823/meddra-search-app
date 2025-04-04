@@ -66,6 +66,7 @@ if st.button("検索"):
             reranked["score"] = rescale_scores(reranked["Relevance"].tolist())
 
         with st.spinner("階層情報を付加中..."):
+            st.write("列名チェック（reranked）:", reranked.columns.tolist())  # ← ここ追加
             final_results = add_hierarchy_info(reranked, term_master_df)
 
         if use_soc_filter:

@@ -101,9 +101,7 @@ def predict_soc_category(query):
 def expand_query_gpt(query):
     messages = [
         {"role": "system", "content": "あなたは日本語医療文を英語のキーワードに変換するアシスタントです。"},
-        {"role": "user", "content": f"以下の日本語の症状から、英語の医学的キーワードを3つ予測してください。
-
-症状: {query}"}
+        {"role": "user", "content": f"以下の日本語の症状から、英語の医学的キーワードを3つ予測してください。\n\n症状: {query}"}
     ]
     try:
         response = openai.ChatCompletion.create(

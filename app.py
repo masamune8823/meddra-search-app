@@ -122,5 +122,11 @@ if st.button("検索"):
         if st.button("🔍 テスト実行（ズキズキ）"):
             from test_meddra_full_pipeline import run_test_pipeline
             run_test_pipeline()
-        # updated
+
+       # ✅ ステップA：意味的に近い用語候補を表示（ズキズキ → 頭痛など）
+       with st.expander("🧠 類似語候補を表示（ベクトル検索）"):
+           similar_terms = suggest_similar_terms(query, faiss_index, meddra_terms, top_k=10)
+           st.write("💡 入力語に意味的に近い用語候補:")
+           for i, term in enumerate(similar_terms, 1):
+               st.markdown(f"{i}. {term}")
 

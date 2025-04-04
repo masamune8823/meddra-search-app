@@ -8,7 +8,7 @@ import faiss
 from helper_functions import (
     encode_query,
     search_meddra,
-    rerank_results_v13,
+    rerank_results_batch,
     add_hierarchy_info,
     rescale_scores,
     predict_soc_category,
@@ -61,8 +61,9 @@ if st.button("検索"):
                 search_results.append(result)
             all_results = pd.concat(search_results).drop_duplicates(subset=["term"]).reset_index(drop=True)
 
-        with st.spinner("再スコアリング中（GPT）..."):
-            reranked = rerank_results_v13(query, all_results.head(10))  # ✅ Top10に制限
+        with st.spinner("再スコアリング中（GPT一括）..."):
+            score_cache = {}  # ✅ 追加（APIコールを繰り返さないためのキャッシュ）
+            reranked = rerank_results_batch(query, all_results, score_cache)
             reranked["score"] = rescale_scores(reranked["Relevance"].tolist())
 
         with st.spinner("階層情報を付加中..."):

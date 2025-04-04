@@ -81,10 +81,10 @@ if st.button("検索"):
         expected_cols = ["term", "score", "HLT", "HLGT", "SOC"]
         available_cols = [col for col in expected_cols if col in final_results.columns]
 
-       # 表示
-       st.dataframe(
-       final_results[available_cols].rename(columns={"term": "用語", "score": "確からしさ (%)"})
-)
+        # 表示
+        st.dataframe(
+              final_results[available_cols].rename(columns={"term": "用語", "score": "確からしさ (%)"})
+        )
 
         csv = final_results.to_csv(index=False).encode("utf-8")
         st.download_button("\ud83d\udcc6 結果をCSVでダウンロード", data=csv, file_name="meddra_results.csv", mime="text/csv")

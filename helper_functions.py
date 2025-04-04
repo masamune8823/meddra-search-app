@@ -1,104 +1,111 @@
+import os
+import re
+import pickle
 import numpy as np
 import pandas as pd
 import faiss
 import openai
-import os
-import re
 import torch
 from sentence_transformers import SentenceTransformer
 
-# --- SentenceTransformer モデルロード（日本語対応） ---
+# モデルのロード（検索用エンコーダー）
 model = SentenceTransformer("sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
 
-# OpenAI APIキーの取得（環境変数 or secrets）
-openai.api_key = os.getenv("OPENAI_API_KEY", "sk-xxx")
+# OpenAI設定（環境変数 OPENAI_API_KEY を使用）
+openai.api_key = os.getenv("OPENAI_API_KEY", "sk-xxx")  # Streamlit CloudではSecretsで管理推奨
 
-# --- クエリのエンコード ---
+# クエリのベクトル化
 def encode_query(text):
     return model.encode([text])[0]
 
-# --- 類似検索 ---
-def search_meddra(query, faiss_index, meddra_terms, synonym_df=None, top_k=20):
+# FAISS検索
+def search_meddra(query, faiss_index, meddra_terms, synonym_df, top_k=20):
     query_vec = encode_query(query)
+
+    # 類義語マッチ（カテゴリ1のみ）
+    match = synonym_df[synonym_df["表現"].str.strip() == query.strip()]
+    synonym_terms = match["PT_Name"].unique().tolist() if not match.empty else []
+
+    # FAISS類似検索
     D, I = faiss_index.search(np.array([query_vec]), top_k)
-    results = pd.DataFrame({
-        "term": [meddra_terms[i] for i in I[0]],
-        "score": D[0]
-    })
+    results = []
+    for score, idx in zip(D[0], I[0]):
+        if idx == -1:
+            continue
+        term = meddra_terms[idx]
+        results.append({"term": term, "score": float(score)})
 
-    # synonym_dfが指定されていれば、synonym候補も追加検索
-    if synonym_df is not None:
-        norm_query = query.strip().lower()
-        matched = synonym_df[synonym_df["synonym"].str.lower() == norm_query]
-        if not matched.empty:
-            for pt in matched["PT"].unique():
-                pt_vec = encode_query(pt)
-                D_syn, I_syn = faiss_index.search(np.array([pt_vec]), 1)
-                results = pd.concat([
-                    results,
-                    pd.DataFrame({"term": [pt], "score": D_syn[0]})
-                ], ignore_index=True)
+    # 類義語一致分はスコアを上書きして追加
+    for term in synonym_terms:
+        results.append({"term": term, "score": 999.0})
 
-    results.drop_duplicates(subset="term", inplace=True)
-    return results
+    return pd.DataFrame(results)
 
-# --- GPTによる再スコアリング（Top-N） ---
+# 再ランキング（GPTスコアリング）
 def rerank_results_v13(query, results_df, top_n=10):
-    top_results = results_df.head(top_n).copy()
-    prompts = [
-        f"Q: {query}\nA: {cand}" for cand in top_results["term"]
-    ]
-    joined_prompt = "\n\n".join(prompts)
+    scored_results = []
+    for _, row in results_df.head(top_n).iterrows():
+        candidate = row["term"]
+        try:
+            response = openai.ChatCompletion.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {"role": "system", "content": "あなたは医療用語の専門家です。"},
+                    {"role": "user", "content": f"以下の症状に最も適切な用語を評価してください。
+症状: {query}
+候補: {candidate}
+この候補はどれほど適切ですか？10点満点で数値のみ返してください。"}
+                ],
+                temperature=0,
+                max_tokens=10,
+            )
+            score_text = response["choices"][0]["message"]["content"].strip()
+            score = float(score_text)
+        except Exception as e:
+            print(f"再スコアリング失敗: {candidate} -> {e}")
+            score = 0.0
+        scored_results.append({**row, "gpt_score": score})
+    return pd.DataFrame(scored_results)
 
-    messages = [
-        {"role": "system", "content": "以下は医療用語検索の関連性評価です。Qに対してAがどれほど適切か10点満点で評価してください。"},
-        {"role": "user", "content": joined_prompt}
-    ]
+# MedDRA階層の付与
+def add_hierarchy_info(df, term_master_df):
+    df["term_normalized"] = df["term"].str.lower().str.strip()
+    term_master_df["term_normalized"] = term_master_df["PT_English"].str.lower().str.strip()
+    return df.merge(term_master_df, on="term_normalized", how="left")
 
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=messages,
-        max_tokens=300,
-        temperature=0
-    )
-
-    scores_text = response["choices"][0]["message"]["content"].strip()
-    scores = re.findall(r"(\d+(?:\.\d+)?)", scores_text)
-
-    if len(scores) == len(top_results):
-        top_results["score"] = list(map(float, scores))
-    else:
-        top_results["score"] = [7.0] * len(top_results)  # fallback
-
-    return top_results.sort_values(by="score", ascending=False)
-
-# --- スコアのリスケーリング（0〜100％） ---
+# スコアを0〜100%に変換
 def rescale_scores(df):
-    min_score = df["score"].min()
-    max_score = df["score"].max()
+    if "gpt_score" not in df.columns:
+        return df
+    min_score = df["gpt_score"].min()
+    max_score = df["gpt_score"].max()
     if max_score == min_score:
-        df["score"] = 100.0
+        df["確からしさ（％）"] = 100
     else:
-        df["score"] = 100 * (df["score"] - min_score) / (max_score - min_score)
-    df["score"] = df["score"].round(1)
+        df["確からしさ（％）"] = ((df["gpt_score"] - min_score) / (max_score - min_score) * 100).round(1)
     return df
 
-# --- MedDRA階層情報の付加 ---
-def add_hierarchy_info(df, term_master_df):
-    df = df.copy()
-    df["term_normalized"] = df["term"].str.lower().str.strip()
-    term_master_df = term_master_df.copy()
-    term_master_df["term_normalized"] = term_master_df["PT_English"].str.lower().str.strip()
-    merged = pd.merge(df, term_master_df, on="term_normalized", how="left")
-    return merged
-
-# --- GPTによるSOCカテゴリ予測（フィルタリング用） ---
-def predict_soc_category(query):
-    prompt = f"次の症状に関連するSOCカテゴリ（例：Gastrointestinal disorders）を1つだけ出力してください。\n\n症状: {query}\n\nSOCカテゴリ:"
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens=30,
-        temperature=0
+# OpenAIによるSOCカテゴリ予測
+def predict_soc_category(query: str) -> list:
+    system_prompt = (
+        "あなたは医療分野に詳しいAIです。入力された症状の説明から、"
+        "該当する可能性の高いMedDRAのSOC（System Organ Class）を、日本語で1〜3個、リスト形式で抽出してください。"
+        "抽出の際は、「神経系障害」「胃腸障害」「皮膚および皮下組織障害」などの正式な表記を使用してください。"
     )
-    return response["choices"][0]["message"]["content"].strip()
+    user_prompt = f"次の症状に該当するSOCを日本語で挙げてください：『{query}』"
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            temperature=0.3,
+            max_tokens=100,
+        )
+        text = response["choices"][0]["message"]["content"]
+        categories = [line.strip("・-・●-＊ ").strip() for line in text.strip().splitlines() if line.strip()]
+        return categories if categories else ["該当なし"]
+    except Exception as e:
+        print("⚠️ GPTによるSOCカテゴリ推論エラー:", e)
+        return ["該当なし"]

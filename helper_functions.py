@@ -1,79 +1,98 @@
 
+import os
+import re
+import pickle
+import openai
+import faiss
 import numpy as np
 import pandas as pd
 import torch
-import openai
-import re
-import pickle
-from sentence_transformers import SentenceTransformer, util
+from sentence_transformers import SentenceTransformer
 
+# モデルロード
 model = SentenceTransformer("sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
 
-def encode_query(query):
-    return model.encode(query)
+# OpenAI APIキー（環境変数から取得）
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
-def search_meddra(query, faiss_index, meddra_terms, synonym_df, top_k=20):
-    query_vector = encode_query(query).astype("float32")
-    D, I = faiss_index.search(np.array([query_vector]), top_k)
-    results = [{"term": str(meddra_terms[i]), "score": float(D[0][j])} for j, i in enumerate(I[0])]
+# クエリをベクトル化
+def encode_query(text):
+    return model.encode([text])[0]
+
+# 検索処理本体
+def search_meddra(query, faiss_index, meddra_terms, synonym_df=None, top_k=10):
+    query_vector = encode_query(query).astype(np.float32)
+    distances, indices = faiss_index.search(np.array([query_vector]), top_k)
+    results = []
+    for i in range(len(indices[0])):
+        idx = indices[0][i]
+        if idx < len(meddra_terms):
+            term = meddra_terms[idx]
+            score = float(distances[0][i])
+            results.append({"Term": term, "Score": score})
     return pd.DataFrame(results)
 
-def rerank_results_v13(original_query, df, score_cache):
-    import openai
-    results = []
-    for _, row in df.iterrows():
-        term = row["term"]
-        cache_key = (original_query, term)
+# 再ランキング処理（GPT使用）
+def rerank_results_v13(query, candidates, score_cache=None):
+    if score_cache is None:
+        score_cache = {}
+
+    scored = []
+    for i, row in candidates.iterrows():
+        term = row["Term"]
+        cache_key = (query, term)
         if cache_key in score_cache:
             score = score_cache[cache_key]
         else:
-            prompt = f"次の日本語の症状に対して、以下の用語がどれくらい適切か10点満点で評価してください：\n症状: {original_query}\n候補用語: {term}\nスコア:"
-            response = openai.ChatCompletion.create(
-                model="gpt-3.5-turbo",
-                messages=[{"role": "user", "content": prompt}]
-            )
-            text = response["choices"][0]["message"]["content"]
-            score = float(re.search(r"\d+", text).group())
+            messages = [
+                {"role": "system", "content": "あなたは医療用語の関連性判定モデルです。"},
+                {"role": "user", "content": f"以下の記述は、用語「{term}」とどのくらい意味的に一致しますか？ 記述: {query}"}
+            ]
+            try:
+                response = openai.ChatCompletion.create(
+                    model="gpt-3.5-turbo",
+                    messages=messages,
+                    temperature=0,
+                )
+                score = extract_score_from_response(response["choices"][0]["message"]["content"])
+            except Exception as e:
+                score = 5.0  # Fallback
             score_cache[cache_key] = score
-        results.append(score)
-    df["gpt_score"] = results
-    df["score_percent"] = df["gpt_score"].apply(lambda x: rescale_scores(x, 10))
-    return df.sort_values(by="gpt_score", ascending=False).reset_index(drop=True)
+        scored.append((term, score))
 
-def rescale_scores(score, max_score=10):
-    return round((score / max_score) * 100)
+    df = pd.DataFrame(scored, columns=["Term", "Relevance"])
+    return df.sort_values(by="Relevance", ascending=False)
 
-def expand_query_gpt(query):
-    prompt = f"以下の日本語の症状から、英語の医学的キーワードを3つ予測してください：{query}\n出力形式: keyword1, keyword2, keyword3"
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": prompt}]
-    )
-    text = response["choices"][0]["message"]["content"]
-    return [kw.strip() for kw in text.split(",")]
+# 回答からスコア抽出（単純実装）
+def extract_score_from_response(response_text):
+    for word in ["10", "９", "8", "７", "6", "5", "4", "3", "2", "1", "0"]:
+        if word in response_text:
+            try:
+                return float(word)
+            except:
+                continue
+    return 5.0  # fallback
 
+# スコアの再スケーリング
+def rescale_scores(scores):
+    min_score = min(scores)
+    max_score = max(scores)
+    if max_score == min_score:
+        return [100.0 for _ in scores]
+    return [100.0 * (s - min_score) / (max_score - min_score) for s in scores]
+
+# GPTでSOCカテゴリを予測
 def predict_soc_category(query):
-    prompt = f"以下の症状に最も関連の深いSOC名（英語）を1つ予測してください：{query}"
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": prompt}]
-    )
-    return response["choices"][0]["message"]["content"].strip()
-
-def format_keywords(keywords):
-    return ", ".join(keywords)
-
-def add_hierarchy_info(df, term_master_df):
-    merged = pd.merge(df, term_master_df, left_on="term", right_on="PT_English", how="left")
-    return merged[["term", "score", "gpt_score", "score_percent", "HLT", "HLGT", "SOC"]]
-
-def load_score_cache():
+    messages = [
+        {"role": "system", "content": "あなたは医療分野に詳しいアシスタントです。"},
+        {"role": "user", "content": f"次の症状に最も関連するMedDRAのSOCカテゴリを教えてください:「{query}」"}
+    ]
     try:
-        with open("score_cache.pkl", "rb") as f:
-            return pickle.load(f)
-    except:
-        return {}
-
-def save_score_cache(cache):
-    with open("score_cache.pkl", "wb") as f:
-        pickle.dump(cache, f)
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=messages,
+            temperature=0,
+        )
+        return response["choices"][0]["message"]["content"]
+    except Exception as e:
+        return "エラー: " + str(e)

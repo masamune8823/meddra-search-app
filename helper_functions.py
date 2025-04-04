@@ -35,6 +35,16 @@ def search_meddra(query, faiss_index, meddra_terms, synonym_df=None, top_k=10):
             results.append({"term": term, "score": score})
     return pd.DataFrame(results)
 
+#  ベクトル類似によるPT候補提示
+def suggest_similar_terms(query, faiss_index, meddra_terms, top_k=10):
+    """
+    クエリに意味的に近いPT候補を、ベクトル検索により取得する。
+    """
+    query_vector = encode_query(query).astype(np.float32)
+    distances, indices = faiss_index.search(np.array([query_vector]), top_k)
+    suggestions = [meddra_terms[idx] for idx in indices[0] if idx < len(meddra_terms)]
+    return suggestions
+   
 # 回答からスコア抽出（単純実装）
 def extract_score_from_response(response_text):
     for word in ["10", "９", "8", "７", "6", "5", "4", "3", "2", "1", "0"]:

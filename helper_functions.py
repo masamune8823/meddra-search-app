@@ -54,73 +54,75 @@ def rescale_scores(scores):
     return [100.0 * (s - min_score) / (max_score - min_score) for s in scores]
 
 # ✅ 再ランキング処理（GPT一括呼び出し版）
+# ✅ GPT再ランキング処理（1メッセージ形式）
 def rerank_results_batch(query, candidates, score_cache=None):
     if score_cache is None:
         score_cache = {}
 
-    # Top10件に絞る
     top_candidates = candidates.head(10)
 
-    messages = [{"role": "system", "content": "あなたは医療用語の関連性判定モデルです。"}]
-    index_map = {}  # idxとtermの対応を記録
-
+    # 未スコアの term だけを抽出
+    new_terms = []
     for i, row in top_candidates.iterrows():
         term = row["term"]
-        cache_key = (query, term)
+        if (query, term) not in score_cache:
+            new_terms.append(term)
 
-        if cache_key in score_cache:
-            continue  # スコア済み
+    if new_terms:
+        # 🔧 プロンプト組み立て（1メッセージに全term）
+        prompt = f"""以下の記述「{query}」に対して、各用語がどれくらい意味的に一致するかを教えてください。
+一致度を 0〜10 の数値で記述してください。
 
-        prompt = f"用語「{term}」は、以下の記述とどれくらい意味的に一致しますか？ 一致度（0～10）を数値で教えてください。\n記述: {query}"
-        messages.append({"role": "user", "content": prompt})
-        index_map[len(messages) - 2] = term  # systemを除いたindex
+"""
+        for idx, term in enumerate(new_terms, 1):
+            prompt += f"{idx}. {term}\n"
 
-    # GPT呼び出し（1回）
-    try:
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=messages,
-            temperature=0,
-        )
-        
-        # ✅ デバッグ用ログ（前後を含めて明示）
-        import streamlit as st
-        st.subheader("🧾 GPTレスポンス内容（デバッグ用）")
-        st.write("🔍 GPTからの生レスポンス（全体構造）")
-        st.write(response)  # ← response全体を表示（構造確認）
+        prompt += "\n形式：\n1. 7\n2. 5\n... のように記載してください。"
 
-        st.write("📝 GPTからのメッセージ本文（choices[0].message.content）")
-        st.code(response.choices[0].message.content)  # ← 実際の返答テキスト表示
+        messages = [
+            {"role": "system", "content": "あなたは医療用語の関連性を数値で判断する専門家です。"},
+            {"role": "user", "content": prompt}
+        ]
 
-        # 返答（1つ）から全体の内容を取得
-        content = response.choices[0].message.content
+        try:
+            response = client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=messages,
+                temperature=0,
+            )
+            content = response.choices[0].message.content
 
-        # 返答の中から個別に数値を抽出（改行 or カンマ区切り想定）
-        lines = [l.strip() for l in content.strip().split("\n") if l.strip()]
-        for i, line in enumerate(lines):
-            st.write(f"[{i}] {line}")  # ← 🔍 どんな行かを可視化
-            if i in index_map:
-                term = index_map[i]
-                try:
-                    score = extract_score_from_response(line)
-                    score_cache[(query, term)] = score
-                except:
-                    score_cache[(query, term)] = 5.0  # fallback
-    except Exception as e:
-        # 全体失敗時のfallback
-        for term in top_candidates["term"]:
-            score_cache[(query, term)] = 5.0
+            # ✅ Streamlitログ表示（デバッグ用）
+            import streamlit as st
+            st.subheader("🧾 GPTレスポンス内容（一括形式）")
+            st.code(content)
+
+            # 数値抽出（形式：1. 7）
+            for line in content.strip().split("\n"):
+                if "." in line:
+                    parts = line.split(".")
+                    try:
+                        idx = int(parts[0].strip())
+                        score = extract_score_from_response(line)
+                        term = new_terms[idx - 1]
+                        score_cache[(query, term)] = score
+                    except:
+                        continue
+        except Exception as e:
+            for term in new_terms:
+                score_cache[(query, term)] = 5.0  # fallback
 
     # スコアをまとめて返す
     scored = [(term, score_cache.get((query, term), 5.0)) for term in top_candidates["term"]]
     df = pd.DataFrame(scored, columns=["term", "Relevance"])
     return df.sort_values(by="Relevance", ascending=False)
 
+
 # GPTでSOCカテゴリを予測
 def predict_soc_category(query):
     messages = [
-        {"role": "system", "content": "あなたは医療分野に詳しいアシスタントです。"},
-        {"role": "user", "content": f"次の症状に最も関連するMedDRAのSOCカテゴリを教えてください:「{query}」"}
+        {"role": "system", "content": "あなたはMedDRAのSOCカテゴリを特定する専門家です。"},
+        {"role": "user", "content": f"次の症状に最も関連するMedDRAのSOCカテゴリを1つだけ、日本語で簡潔に答えてください（例：「神経系障害」など）。\n\n症状: {query}"}
     ]
     try:
         response = client.chat.completions.create(
@@ -128,9 +130,9 @@ def predict_soc_category(query):
             messages=messages,
             temperature=0,
         )
-        return response.choices[0].message.content
+        return response.choices[0].message.content.strip()
     except Exception as e:
-        return "エラー: " + str(e)
+        return "不明"
 
 # クエリ拡張（GPT使用）
 def expand_query_gpt(query):

@@ -1,96 +1,98 @@
 
-import numpy as np
-import pandas as pd
-import faiss
-import openai
-import torch
-from sentence_transformers import SentenceTransformer
-
 import os
 import re
 import pickle
+import openai
+import faiss
+import numpy as np
+import pandas as pd
+import torch
+from sentence_transformers import SentenceTransformer
 
-# OpenAI APIキー（Streamlit CloudではSecretsで管理推奨）
-openai.api_key = os.getenv("OPENAI_API_KEY", "sk-xxx")
-
-# モデルの読み込み（MiniLM）
+# モデルロード
 model = SentenceTransformer("sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
 
-# クエリのベクトル化
+# OpenAI APIキー（環境変数から取得）
+openai.api_key = os.getenv("OPENAI_API_KEY")
+
+# クエリをベクトル化
 def encode_query(text):
     return model.encode([text])[0]
 
-# FAISS検索処理（synonym_df対応）
-def search_meddra(query, faiss_index, meddra_terms, synonym_df, top_k=20):
-    query_vector = encode_query(query).astype("float32")
-    scores, indices = faiss_index.search(np.array([query_vector]), top_k)
-    terms = [meddra_terms[idx] for idx in indices[0]]
-    df = pd.DataFrame({"term": terms, "score": scores[0]})
-    
-    # synonym_dfが存在すれば一致するsynonymも追加
-    if synonym_df is not None and query in synonym_df["keyword"].values:
-        matched_terms = synonym_df[synonym_df["keyword"] == query]["term"].tolist()
-        synonym_df_rows = pd.DataFrame({"term": matched_terms, "score": [0.85] * len(matched_terms)})
-        df = pd.concat([df, synonym_df_rows], ignore_index=True)
-    
-    df = df.drop_duplicates(subset=["term"]).reset_index(drop=True)
-    return df
-
-# GPT再スコアリング（Top N件に限定）
-def rerank_results_v13(df, query, top_n=10, cache=None):
-    if df.empty:
-        return df
-
-    df = df.head(top_n).copy()
+# 検索処理本体
+def search_meddra(query, faiss_index, meddra_terms, synonym_df=None, top_k=10):
+    query_vector = encode_query(query).astype(np.float32)
+    distances, indices = faiss_index.search(np.array([query_vector]), top_k)
     results = []
+    for i in range(len(indices[0])):
+        idx = indices[0][i]
+        if idx < len(meddra_terms):
+            term = meddra_terms[idx]
+            score = float(distances[0][i])
+            results.append({"Term": term, "Score": score})
+    return pd.DataFrame(results)
 
-    for _, row in df.iterrows():
-        term = row["term"]
-        key = (query, term)
-        if cache and key in cache:
-            score = cache[key]
+# 再ランキング処理（GPT使用）
+def rerank_results_v13(query, candidates, score_cache=None):
+    if score_cache is None:
+        score_cache = {}
+
+    scored = []
+    for i, row in candidates.iterrows():
+        term = row["Term"]
+        cache_key = (query, term)
+        if cache_key in score_cache:
+            score = score_cache[cache_key]
         else:
-            prompt = f"ユーザーが「{query}」と訴えています。これが「{term}」という医学用語とどれくらい一致するか、100点満点で数値化してください。"
-            response = openai.ChatCompletion.create(
-                model="gpt-3.5-turbo",
-                messages=[
-                    {"role": "system", "content": "あなたは医療用語に精通したアシスタントです。"},
-                    {"role": "user", "content": prompt},
-                ],
-                temperature=0.2,
-            )
-            score_text = response.choices[0].message.content.strip()
+            messages = [
+                {"role": "system", "content": "あなたは医療用語の関連性判定モデルです。"},
+                {"role": "user", "content": f"以下の記述は、用語「{term}」とどのくらい意味的に一致しますか？ 記述: {query}"}
+            ]
             try:
-                score = float(re.findall(r"\d+", score_text)[0])
-                score = min(max(score, 0), 100)
+                response = openai.ChatCompletion.create(
+                    model="gpt-3.5-turbo",
+                    messages=messages,
+                    temperature=0,
+                )
+                score = extract_score_from_response(response["choices"][0]["message"]["content"])
+            except Exception as e:
+                score = 5.0  # Fallback
+            score_cache[cache_key] = score
+        scored.append((term, score))
+
+    df = pd.DataFrame(scored, columns=["Term", "Relevance"])
+    return df.sort_values(by="Relevance", ascending=False)
+
+# 回答からスコア抽出（単純実装）
+def extract_score_from_response(response_text):
+    for word in ["10", "９", "8", "７", "6", "5", "4", "3", "2", "1", "0"]:
+        if word in response_text:
+            try:
+                return float(word)
             except:
-                score = 50.0  # fallback
-            if cache is not None:
-                cache[key] = score
-        results.append(score)
+                continue
+    return 5.0  # fallback
 
-    df["確からしさ（％）"] = results
-    df = df.sort_values(by="確からしさ（％）", ascending=False).reset_index(drop=True)
-    return df
+# スコアの再スケーリング
+def rescale_scores(scores):
+    min_score = min(scores)
+    max_score = max(scores)
+    if max_score == min_score:
+        return [100.0 for _ in scores]
+    return [100.0 * (s - min_score) / (max_score - min_score) for s in scores]
 
-# MedDRA階層情報の付加（term_master_df を使用）
-def add_hierarchy_info(df, term_master_df):
-    if df.empty:
-        return df
-
-    df["term_normalized"] = df["term"].str.lower().str.strip()
-    term_master_df["term_normalized"] = term_master_df["PT_English"].str.lower().str.strip()
-    return df.merge(term_master_df, on="term_normalized", how="left")
-
-# GPTによるSOCカテゴリ推定
+# GPTでSOCカテゴリを予測
 def predict_soc_category(query):
-    prompt = f"次の症状に最も関連の深いMedDRAのSOC（System Organ Class）を一つだけ日本語で答えてください：「{query}」"
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[
-            {"role": "system", "content": "あなたはMedDRA分類に詳しい医療専門家です。"},
-            {"role": "user", "content": prompt},
-        ],
-        temperature=0.3,
-    )
-    return response.choices[0].message.content.strip()
+    messages = [
+        {"role": "system", "content": "あなたは医療分野に詳しいアシスタントです。"},
+        {"role": "user", "content": f"次の症状に最も関連するMedDRAのSOCカテゴリを教えてください:「{query}」"}
+    ]
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=messages,
+            temperature=0,
+        )
+        return response["choices"][0]["message"]["content"]
+    except Exception as e:
+        return "エラー: " + str(e)

@@ -72,11 +72,12 @@ if st.button("検索"):
             st.write("🧩 final_results の列一覧:", final_results.columns.tolist())  # ← 🔍 SOC列があるか確認
 
         if use_soc_filter:
-            try:
-                soc_prediction = predict_soc_category(query)
-                final_results = final_results[final_results["SOC"].isin(soc_prediction)]
-            except Exception as e:
-                st.warning(f"フィルタ処理でエラーが発生しました: {e}")
+             try:
+                 soc_prediction = predict_soc_category(query)
+                 # 正しい列名 "SOC_Japanese" を使うよう修正
+                 final_results = final_results[final_results["SOC_Japanese"].str.contains(soc_prediction)]
+             except Exception as e:
+                 st.warning(f"フィルタ処理でエラーが発生しました: {e}")
 
         st.success("検索完了")
 

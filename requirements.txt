@@ -1,5 +1,6 @@
 streamlit>=1.25.0
 sentence-transformers>=2.2.2
+transformers>=4.36.2
 faiss-cpu
 openai
 pandas

@@ -1,0 +1,43 @@
+# Pythonキャッシュ
+__pycache__/
+*.py[cod]
+*.so
+
+# Jupyter / Colab用
+.ipynb_checkpoints/
+
+# 環境構成
+.env
+.venv/
+env/
+venv/
+*.env
+
+# Streamlitキャッシュ
+.streamlit/
+.cache/
+config.toml
+
+# OpenAI / APIキー
+openai_key.txt
+
+# ログや一時ファイル
+*.log
+*.tmp
+*.bak
+
+# キャッシュファイル・大容量データ
+*.pkl
+!term_master_df.pkl
+!synonym_df_cat1.pkl
+!score_cache.pkl
+!query_expansion_cache.pkl
+
+# 除外：100MB超 or 手動管理対象
+session_state.pkl
+cache_backup.pkl
+local_backup/
+
+# Mac / Windowsシステムファイル
+.DS_Store
+Thumbs.db

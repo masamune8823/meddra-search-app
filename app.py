@@ -110,7 +110,7 @@ if st.button("検索"):
         # ✅ STEP 6: MedDRA階層付加
         with st.spinner("階層情報を付加中..."):
             st.write("列名チェック（reranked）:", reranked.columns.tolist())  # ← ここ追加
-            final_results = add_hierarchy_info(reranked, term_master_df)
+            final_results = add_hierarchy_info_jp(reranked, term_master_df)
             st.write("🧩 final_results の列一覧:", final_results.columns.tolist())  # ← 🔍 SOC列があるか確認
 
             st.write("🔍 マージ対象語数:", len(reranked))

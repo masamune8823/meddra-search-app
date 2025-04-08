@@ -89,28 +89,30 @@ if st.button("検索"):
             else:
                 st.info("🆕 新しい拡張語を生成しました（キャッシュ追加済）。")
 
-    # ✅ デバッグ表示
-    st.subheader("🧠 GPT予測キーワード（整形後）")
-    st.write(predicted_keywords)
+        # ✅ STEP 3.5: デバッグ表示（拡張語の確認）
+        st.subheader("🧠 GPT予測キーワード（整形後）")
+        st.write(predicted_keywords)
 
+        # ✅ STEP 4: FAISS検索
         with st.spinner("FAISSで用語検索中..."):
             search_results = []
             for kw in predicted_keywords:
                 result = search_meddra(kw, faiss_index, meddra_terms, synonym_df, top_k=20)
                 search_results.append(result)
             all_results = pd.concat(search_results).drop_duplicates(subset=["term"]).reset_index(drop=True)
-
+            
+        # ✅ STEP 5: GPT再スコアリング
         with st.spinner("再スコアリング中（GPT一括）..."):
             score_cache = {}  # ✅ 追加（APIコールを繰り返さないためのキャッシュ）
             reranked = rerank_results_batch(query, all_results, score_cache)
             reranked["score"] = rescale_scores(reranked["Relevance"].tolist())
-
+            
+        # ✅ STEP 6: MedDRA階層付加
         with st.spinner("階層情報を付加中..."):
             st.write("列名チェック（reranked）:", reranked.columns.tolist())  # ← ここ追加
             final_results = add_hierarchy_info(reranked, term_master_df)
             st.write("🧩 final_results の列一覧:", final_results.columns.tolist())  # ← 🔍 SOC列があるか確認
 
-            # ✅ ここから追加：マージ確認ログ（STEP 5-B）
             st.write("🔍 マージ対象語数:", len(reranked))
             st.write("🔍 階層付与後件数:", len(final_results))
 
@@ -118,7 +120,7 @@ if st.button("検索"):
             if unmatched_terms:
                 st.warning("🧯 階層マスタに一致しなかった用語（PT_English）:")
                 st.write(list(unmatched_terms))
-
+        # ✅ STEP 7: SOCフィルタ
         if use_soc_filter:
              try:
                 soc_prediction = predict_soc_category(query)
@@ -132,7 +134,7 @@ if st.button("検索"):
 
         st.success("検索完了")
 
-        # ✅ 表示する列を日本語の階層構造で拡張
+        # ✅ STEP 8: 結果表示  表示する列を日本語の階層構造で拡張
         display_cols = [
             "term", "score",
             "PT_Japanese", "HLT_Japanese", "HLGT_Japanese", "SOC_Japanese"

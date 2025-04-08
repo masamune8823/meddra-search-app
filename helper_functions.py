@@ -167,9 +167,13 @@ def predict_soc_category(query):
         return "不明"
 
 # クエリ拡張（GPT使用）
-messages = [
-    {"role": "system", "content": "あなたは日本語のあいまいな症状表現を、正確な英語の医学用語に変換する専門家です。"},
-    {"role": "user", "content": f"""
+def expand_query_gpt(query, query_cache=None):
+    if query_cache is not None and query in query_cache:
+        return query_cache[query]
+
+    messages = [
+        {"role": "system", "content": "あなたは日本語のあいまいな症状表現を、正確な英語の医学用語に変換する専門家です。"},
+        {"role": "user", "content": f"""
 以下の日本語の症状「{query}」について、具体的に考えられる医学的な症状名や疾患名（英語）を3つ予測してください。
 
 例：「ズキズキ」→ "headache", "migraine", "throbbing pain"
@@ -177,8 +181,8 @@ messages = [
 ・曖昧なカテゴリ（例：神経系障害）ではなく、具体的な症状名や疾患名を出力してください。
 ・必ず3つ、カンマ区切りで出力してください。
 """}
-]
-    
+    ]
+
     try:
         response = client.chat.completions.create(
             model="gpt-3.5-turbo",
@@ -193,6 +197,7 @@ messages = [
         return keywords
     except:
         return ["headache", "fever", "pain"]
+
 
 # 表示整形（キーワードリスト）
 def format_keywords(keywords):

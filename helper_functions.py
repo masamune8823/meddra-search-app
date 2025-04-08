@@ -171,6 +171,7 @@ def expand_query_gpt(query, query_cache=None):
     if query_cache is not None and query in query_cache:
         return query_cache[query]
 
+    # GPTへ問い合わせ（具体的な症状名を求めるように改善）
     messages = [
         {"role": "system", "content": "あなたは日本語のあいまいな症状表現を、正確な英語の医学用語に変換する専門家です。"},
         {"role": "user", "content": f"""
@@ -189,15 +190,19 @@ def expand_query_gpt(query, query_cache=None):
             messages=messages,
             temperature=0,
         )
-        response_text = response.choices[0].message.content
-        keywords = [kw.strip() for kw in response_text.split(",") if kw.strip()]
+        response_text = response.choices[0].message.content.strip()
 
+        # ✅ Streamlitログでレスポンス確認
+        import streamlit as st
+        st.subheader("📥 GPT 生レスポンス内容（拡張語）")
+        st.code(response_text)
+
+        keywords = [kw.strip() for kw in response_text.split(",") if kw.strip()]
         if query_cache is not None:
             query_cache[query] = keywords
         return keywords
-    except:
+    except Exception as e:
         return ["headache", "fever", "pain"]
-
 
 # 表示整形（キーワードリスト）
 def format_keywords(keywords):

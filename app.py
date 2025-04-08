@@ -37,28 +37,17 @@ def load_assets():
     try:
         meddra_terms = np.load("meddra_terms.npy", allow_pickle=True)
 
-        # ✅ synonym_df.pkl が存在しなければ自動作成（事前にxlsxが必要）
+        # ✅ synonym_df.pkl のみ読み込み
         synonym_path = "data/synonym_df.pkl"
-        xlsx_path = "data/日本語シノニムV28.0一覧.xlsx"
         if not os.path.exists(synonym_path):
-            st.warning("⚠️ synonym_df.pkl が存在しません。自動生成を試みます...")
-            df = pd.read_excel(xlsx_path)
-            if not {"llt_s_kanji", "pt_kanji"}.issubset(df.columns):
-                st.error("❌ 必要なカラム（llt_s_kanji / pt_kanji）が見つかりません。")
-                raise ValueError("synonym_df 自動生成失敗")
-            synonym_df = df.rename(columns={
-                "llt_s_kanji": "variant",
-                "pt_kanji": "PT_Japanese"
-            })[["variant", "PT_Japanese"]].dropna().query("variant != '' and PT_Japanese != ''").reset_index(drop=True)
-            with open(synonym_path, "wb") as f:
-                pickle.dump(synonym_df, f)
-            st.success("✅ synonym_df.pkl を自動生成しました")
-        else:
-            synonym_df = pickle.load(open(synonym_path, "rb"))
+            st.error("❌ synonym_df.pkl が存在しません。先に作成してください。")
+            raise FileNotFoundError("synonym_df.pkl not found")
+
+        synonym_df = pickle.load(open(synonym_path, "rb"))
 
         # ✅ カラム名チェック
         if not {"variant", "PT_Japanese"}.issubset(synonym_df.columns):
-            st.error("❌ synonym_df に必要なカラムがありません。")
+            st.error("❌ synonym_df に必要なカラム（variant / PT_Japanese）がありません。")
             raise ValueError("synonym_df のカラム不一致")
 
         term_master_df = pickle.load(open("term_master_df.pkl", "rb"))
@@ -95,32 +84,6 @@ if st.sidebar.button("🗑️ 拡張語キャッシュを削除"):
         st.sidebar.success("拡張語キャッシュを削除しました。")
     else:
         st.sidebar.warning("拡張語キャッシュは存在しません。")
-
-# ✅ synonym_df.pkl を再生成（variant / PT_Japanese のカラム構造に変換）
-if st.sidebar.button("📌 synonym_df.pkl を再生成（variant / PT_Japanese）"):
-    try:
-        xlsx_path = "data/日本語シノニムV28.0一覧.xlsx"
-        df = pd.read_excel(xlsx_path)
-
-        if not {"llt_s_kanji", "pt_kanji"}.issubset(df.columns):
-            st.sidebar.error("❌ 必要なカラム（llt_s_kanji / pt_kanji）が見つかりません。")
-        else:
-            synonym_df = df.rename(columns={
-                "llt_s_kanji": "variant",
-                "pt_kanji": "PT_Japanese"
-            })[["variant", "PT_Japanese"]]
-
-            synonym_df = synonym_df.dropna().query("variant != '' and PT_Japanese != ''").reset_index(drop=True)
-
-            with open("synonym_df_cat1.pkl", "wb") as f:
-                pickle.dump(synonym_df, f)
-
-            st.sidebar.success("✅ synonym_df.pkl を再生成しました！")
-    except Exception as e:
-        st.sidebar.error(f"❌ エラーが発生しました: {e}")
-
-
-
 
 
 # ---------------- ユーザー入力 ---------------- #

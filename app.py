@@ -17,6 +17,7 @@ from helper_functions import (
     suggest_similar_terms, 
     load_score_cache, 
     load_query_cache, 
+    add_hierarchy_info_jp,
     expand_query_gpt,
 )
 

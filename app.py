@@ -48,6 +48,24 @@ faiss_index, meddra_terms, synonym_df, term_master_df = load_assets()
 score_cache = load_score_cache("score_cache.pkl")
 query_cache = load_query_cache("query_expansion_cache.pkl")
 
+# ✅ Streamlitサイドバーにキャッシュ削除ボタンを追加
+if st.sidebar.button("🗑️ スコアキャッシュを削除"):
+    if os.path.exists("score_cache.pkl"):
+        os.remove("score_cache.pkl")
+        score_cache = {}
+        st.sidebar.success("✅ score_cache.pkl を削除しました。再実行時に再作成されます。")
+    else:
+        st.sidebar.warning("⚠️ score_cache.pkl はすでに存在しません。")
+
+# ✅ Streamlitサイドバーにクエリ拡張キャッシュ削除ボタンを追加
+if st.sidebar.button("🗑️ 拡張語キャッシュを削除"):
+    if os.path.exists("query_expansion_cache.pkl"):
+        os.remove("query_expansion_cache.pkl")
+        query_cache = {}
+        st.sidebar.success("✅ query_expansion_cache.pkl を削除しました。再実行時に再作成されます。")
+    else:
+        st.sidebar.warning("⚠️ query_expansion_cache.pkl はすでに存在しません。")
+
 # ---------------- ユーザー入力 ---------------- #
 query = st.text_input("検索語を入力してください（例：皮膚がかゆい）", value="ズキズキ")
 use_soc_filter = st.checkbox("GPTによるSOC予測でフィルタリング（推奨）", value=True)

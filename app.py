@@ -36,21 +36,29 @@ def load_assets():
 
     try:
         meddra_terms = np.load("meddra_terms.npy", allow_pickle=True)
-        synonym_df = pickle.load(open("synonym_df.pkl", "rb"))
-        
-        # ✅ ここで一度カラムを確認
-        st.write("📊 synonym_df 読み込み成功。カラム一覧:", synonym_df.columns.tolist())
 
-        # ✅ カラム名に応じて処理を分岐（柔軟対応）
-        if "表記ゆれ" in synonym_df.columns and "標準語（MedDRA PT）" in synonym_df.columns:
-            synonym_df = synonym_df.rename(columns={
-                "表記ゆれ": "variant",
-                "標準語（MedDRA PT）": "PT_Japanese"
-            })[["variant", "PT_Japanese"]].dropna().reset_index(drop=True)
-        elif "variant" in synonym_df.columns and "PT_Japanese" in synonym_df.columns:
-            synonym_df = synonym_df[["variant", "PT_Japanese"]].dropna().reset_index(drop=True)
+        # ✅ synonym_df.pkl が存在しなければ自動作成（事前にxlsxが必要）
+        synonym_path = "data/synonym_df.pkl"
+        xlsx_path = "data/日本語シノニムV28.0一覧.xlsx"
+        if not os.path.exists(synonym_path):
+            st.warning("⚠️ synonym_df.pkl が存在しません。自動生成を試みます...")
+            df = pd.read_excel(xlsx_path)
+            if not {"llt_s_kanji", "pt_kanji"}.issubset(df.columns):
+                st.error("❌ 必要なカラム（llt_s_kanji / pt_kanji）が見つかりません。")
+                raise ValueError("synonym_df 自動生成失敗")
+            synonym_df = df.rename(columns={
+                "llt_s_kanji": "variant",
+                "pt_kanji": "PT_Japanese"
+            })[["variant", "PT_Japanese"]].dropna().query("variant != '' and PT_Japanese != ''").reset_index(drop=True)
+            with open(synonym_path, "wb") as f:
+                pickle.dump(synonym_df, f)
+            st.success("✅ synonym_df.pkl を自動生成しました")
         else:
-            st.error("❌ synonym_df に必要なカラム（表記ゆれ / variant）が見つかりません。")
+            synonym_df = pickle.load(open(synonym_path, "rb"))
+
+        # ✅ カラム名チェック
+        if not {"variant", "PT_Japanese"}.issubset(synonym_df.columns):
+            st.error("❌ synonym_df に必要なカラムがありません。")
             raise ValueError("synonym_df のカラム不一致")
 
         term_master_df = pickle.load(open("term_master_df.pkl", "rb"))
@@ -60,6 +68,7 @@ def load_assets():
         raise e
 
     return faiss_index, meddra_terms, synonym_df, term_master_df
+
 
 
 

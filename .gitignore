@@ -44,3 +44,5 @@ local_backup/
 # Mac / Windowsシステムファイル
 .DS_Store
 Thumbs.db
+
+!data/synonym_df.pkl

@@ -79,16 +79,16 @@ if st.button("検索"):
 with st.spinner("キーワードを解析中..."):
     # ✅ クエリ拡張 → 検索に使うキーワード
     expanded_keywords = expand_query_gpt(query, query_cache)
-    predicted_keywords = expanded_keywords  # ← ここで明示的に代入（以後は predicted_keywords を使う）
+    predicted_keywords = expanded_keywords  # ← 明示的に保持
 
-    # ✅ SOCカテゴリ予測 → フィルタ用（検索には使わない）
-    soc_prediction = predict_soc_category(query)
-
-    # ✅ キャッシュ判定（query_cache にあるかどうか）
+    # ✅ キャッシュ判定（先にログ表示を行う）
     if query in query_cache:
         st.info("✅ クエリ拡張キャッシュを使用しました。")
     else:
         st.info("🆕 新しい拡張語を生成しました（キャッシュ追加済）。")
+
+    # ✅ SOCカテゴリ予測（検索には使わない）
+    soc_prediction = predict_soc_category(query)
         
             st.subheader("🧠 GPT予測キーワード（整形後）")
             st.write(predicted_keywords)

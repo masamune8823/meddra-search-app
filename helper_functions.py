@@ -42,7 +42,16 @@ def encode_query(text):
 
 # 検索処理本体
 def search_meddra(query, faiss_index, meddra_terms, synonym_df=None, top_k=10):
+    # ✅ STEP 0: シノニム補正（term列に一致 → PT_Japaneseに置換）
+    if synonym_df is not None:
+        matched_row = synonym_df[synonym_df["term"] == query]
+        if not matched_row.empty:
+            query = matched_row.iloc[0]["PT_Japanese"]
+
+    # STEP 1: クエリベクトル化
     query_vector = encode_query(query).astype(np.float32)
+
+    # STEP 2: 類似検索
     distances, indices = faiss_index.search(np.array([query_vector]), top_k)
     results = []
     for i in range(len(indices[0])):
@@ -51,7 +60,9 @@ def search_meddra(query, faiss_index, meddra_terms, synonym_df=None, top_k=10):
             term = meddra_terms[idx]
             score = float(distances[0][i])
             results.append({"term": term, "score": score})
+
     return pd.DataFrame(results)
+
 
 #  ベクトル類似によるPT候補提示
 def suggest_similar_terms(query, faiss_index, meddra_terms, top_k=10):

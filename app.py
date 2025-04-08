@@ -13,7 +13,10 @@ from helper_functions import (
     rescale_scores,
     predict_soc_category,
     format_keywords,
-    suggest_similar_terms,      
+    suggest_similar_terms, 
+    load_score_cache, 
+    load_query_cache, 
+    expand_query_gpt,
 )
 
 # ---------------- 初期設定 ---------------- #

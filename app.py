@@ -36,10 +36,12 @@ def load_assets():
 
     try:
         meddra_terms = np.load("meddra_terms.npy", allow_pickle=True)
+        # ✅ シノニム辞書（term→PT_Japanese変換）を読み込み
         synonym_df = pickle.load(open("synonym_df_cat1.pkl", "rb"))
         term_master_df = pickle.load(open("term_master_df.pkl", "rb"))
     except Exception as e:
         st.error(f"データファイルの読み込みに失敗しました: {e}")
+        synonym_df = None  # ← fallback（読み込み失敗時）
         raise e
 
     return faiss_index, meddra_terms, synonym_df, term_master_df
@@ -67,6 +69,25 @@ if st.sidebar.button("🗑️ 拡張語キャッシュを削除"):
         st.sidebar.success("拡張語キャッシュを削除しました。")
     else:
         st.sidebar.warning("拡張語キャッシュは存在しません。")
+
+# ✅ synonym_df.pkl を初回作成するための一時ボタン（サイドバー）
+if st.sidebar.button("📌 synonym_df を生成（初回のみ）"):
+    try:
+        xlsx_path = "data/日本語シノニムV28.0一覧.xlsx"
+        df = pd.read_excel(xlsx_path, sheet_name=0)
+        synonym_df = df.rename(columns={
+            "表記ゆれ": "variant",
+            "標準語（MedDRA PT）": "PT_Japanese"
+        })[["variant", "PT_Japanese"]]
+        synonym_df = synonym_df.dropna().query("variant != '' and PT_Japanese != ''").reset_index(drop=True)
+        with open("data/synonym_df.pkl", "wb") as f:
+            pickle.dump(synonym_df, f)
+        st.sidebar.success("✅ synonym_df.pkl を作成しました！")
+    except Exception as e:
+        st.sidebar.error(f"❌ 生成失敗: {e}")
+
+
+
 
 # ---------------- ユーザー入力 ---------------- #
 query = st.text_input("検索語を入力してください（例：皮膚がかゆい）", value="ズキズキ")

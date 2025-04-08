@@ -44,9 +44,9 @@ def encode_query(text):
 def search_meddra(query, faiss_index, meddra_terms, synonym_df=None, top_k=10):
     # ✅ STEP 0: シノニム補正（term列に一致 → PT_Japaneseに置換）
     if synonym_df is not None:
-        matched_row = synonym_df[synonym_df["term"] == query]
+        matched_row = synonym_df[synonym_df["variant"] == query]
         if not matched_row.empty:
-            query = matched_row.iloc[0]["PT_Japanese"]
+            query = matched_row["PT_Japanese"].values[0]
 
     # STEP 1: クエリベクトル化
     query_vector = encode_query(query).astype(np.float32)

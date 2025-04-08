@@ -73,25 +73,21 @@ if st.sidebar.button("🗑️ 拡張語キャッシュを削除"):
 # ✅ synonym_df.pkl を初回作成するための一時ボタン（サイドバー）
 if st.sidebar.button("📌 synonym_df を生成（初回のみ）"):
     try:
-        xlsx_path = "data/日本語シノニムV28.0一覧.xlsx"  # GitHub内の相対パス
-        df = pd.read_excel(xlsx_path, sheet_name=0)
-        synonym_df = df.rename(columns={
+        # synonym_df_cat1.pkl を直接読み込み
+        synonym_df = pickle.load(open("synonym_df_cat1.pkl", "rb"))
+
+        # ✅ カラム名が未加工の場合に備えて rename を安全に適用
+        synonym_df = synonym_df.rename(columns={
             "表記ゆれ": "variant",
             "標準語（MedDRA PT）": "PT_Japanese"
-        })[["variant", "PT_Japanese"]]
+        })
+
+        # ✅ 必要な列だけに絞る
+        synonym_df = synonym_df[["variant", "PT_Japanese"]]
         synonym_df = synonym_df.dropna().query("variant != '' and PT_Japanese != ''").reset_index(drop=True)
 
-        # ✅ 保存ファイル名を synonym_df_cat1.pkl に変更
-        with open("synonym_df_cat1.pkl", "wb") as f:
-            pickle.dump(synonym_df, f)
-
-        st.sidebar.success("✅ synonym_df_cat1.pkl を作成しました！")
     except Exception as e:
-        st.sidebar.error(f"❌ 生成失敗: {e}")
-
-
-
-
+        st.sidebar.error(f"❌ synonym_df 読み込みに失敗しました: {e}")
 
 
 # ---------------- ユーザー入力 ---------------- #

@@ -21,6 +21,18 @@ from helper_functions import (
     expand_query_gpt,
 )
 
+# 必要なパッケージをコードからインストール（openpyxl）
+import subprocess
+import sys
+
+try:
+    import openpyxl
+except ImportError:
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "openpyxl"])
+
+
+
+
 # ---------------- 初期設定 ---------------- #
 st.set_page_config(page_title="MedDRA検索アプリ", page_icon="🔍")
 st.title("\U0001f50d MedDRA検索アプリ")

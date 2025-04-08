@@ -87,24 +87,32 @@ if st.sidebar.button("🗑️ 拡張語キャッシュを削除"):
     else:
         st.sidebar.warning("拡張語キャッシュは存在しません。")
 
-# ✅ synonym_df.pkl を初回作成するための一時ボタン（サイドバー）
+# ✅ synonym_df.pkl を初回作成するためのボタン（サイドバー）
 if st.sidebar.button("📌 synonym_df を生成（初回のみ）"):
     try:
-        # synonym_df_cat1.pkl を直接読み込み
-        synonym_df = pickle.load(open("synonym_df_cat1.pkl", "rb"))
+        xlsx_path = "data/日本語シノニムV28.0一覧.xlsx"
+        if not os.path.exists(xlsx_path):
+            st.sidebar.error(f"❌ ファイルが見つかりません: {xlsx_path}")
+        else:
+            df = pd.read_excel(xlsx_path)
 
-        # ✅ カラム名が未加工の場合に備えて rename を安全に適用
-        synonym_df = synonym_df.rename(columns={
-            "表記ゆれ": "variant",
-            "標準語（MedDRA PT）": "PT_Japanese"
-        })
+            # ✅ カラム確認とエラー対応
+            if not {"表記ゆれ", "標準語（MedDRA PT）"}.issubset(df.columns):
+                st.sidebar.error("❌ カラムが不足しています（表記ゆれ / 標準語（MedDRA PT））")
+            else:
+                synonym_df = df.rename(columns={
+                    "表記ゆれ": "variant",
+                    "標準語（MedDRA PT）": "PT_Japanese"
+                })[["variant", "PT_Japanese"]]
+                synonym_df = synonym_df.dropna().query("variant != '' and PT_Japanese != ''").reset_index(drop=True)
 
-        # ✅ 必要な列だけに絞る
-        synonym_df = synonym_df[["variant", "PT_Japanese"]]
-        synonym_df = synonym_df.dropna().query("variant != '' and PT_Japanese != ''").reset_index(drop=True)
+                with open("data/synonym_df.pkl", "wb") as f:
+                    pickle.dump(synonym_df, f)
 
+                st.sidebar.success("✅ synonym_df.pkl を正常に作成しました！")
     except Exception as e:
-        st.sidebar.error(f"❌ synonym_df 読み込みに失敗しました: {e}")
+        st.sidebar.error(f"❌ synonym_df.pkl の作成中にエラーが発生しました: {e}")
+
 
 
 # ---------------- ユーザー入力 ---------------- #

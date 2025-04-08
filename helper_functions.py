@@ -27,8 +27,11 @@ import pandas as pd
 import torch
 from sentence_transformers import SentenceTransformer
 
-# モデルロード
-model = SentenceTransformer("sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
+# Hugging Face トークンを Streamlit Secrets から取得
+hf_token = os.getenv("HF_TOKEN")
+
+# トークン付きでモデルロード
+model = SentenceTransformer("sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2", use_auth_token=hf_token)
 
 # OpenAI APIキー（環境変数から取得）
 openai.api_key = os.getenv("OPENAI_API_KEY")
@@ -168,10 +171,17 @@ def expand_query_gpt(query, query_cache=None):
     if query_cache is not None and query in query_cache:
         return query_cache[query]
 
-    # GPTへ問い合わせ
+    # GPTへ問い合わせ（具体的な症状名を求めるように改善）
     messages = [
-        {"role": "system", "content": "あなたは日本語医療文を英語のキーワードに変換するアシスタントです。"},
-        {"role": "user", "content": f"以下の日本語の症状から、英語の医学的キーワードを3つ予測してください。\n\n症状: {query}"}
+        {"role": "system", "content": "あなたは日本語の症状表現を、具体的な医学用語（英語）に変換する専門家です。"},
+        {"role": "user", "content": f"""
+以下の日本語の症状「{query}」について、具体的に考えられる英語の医学用語を3つ予測してください。
+
+例：「ズキズキ」→ "headache", "migraine", "nerve pain"
+
+※ 抽象的なカテゴリ（例：神経系障害）ではなく、具体的な症状名や疾患名を出力してください。
+出力はカンマ区切りでお願いします。
+"""}
     ]
     try:
         response = client.chat.completions.create(

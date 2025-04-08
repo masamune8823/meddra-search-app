@@ -36,21 +36,26 @@ def load_assets():
 
     try:
         meddra_terms = np.load("meddra_terms.npy", allow_pickle=True)
-        # ✅ シノニム辞書（term→PT_Japanese変換）を読み込み
+
+        # ✅ synonym_df 読み込み → リネーム処理を追加
         synonym_df = pickle.load(open("synonym_df_cat1.pkl", "rb"))
+        synonym_df = synonym_df.rename(columns={
+            "表記ゆれ": "variant",
+            "標準語（MedDRA PT）": "PT_Japanese"
+        })[["variant", "PT_Japanese"]].dropna().reset_index(drop=True)
+
         term_master_df = pickle.load(open("term_master_df.pkl", "rb"))
-        
-        # ✅✅ ここに追加してください（synonym_dfのカラム確認）
-        st.write("📌 synonym_df のカラム一覧:", synonym_df.columns.tolist())
-        st.write("📌 synonym_df の先頭5行:")
-        st.dataframe(synonym_df.head())        
-         
+
+        # ✅ デバッグ表示（任意で確認用）
+        st.write("✅ synonym_df のカラム:", synonym_df.columns.tolist())
+        st.dataframe(synonym_df.head())
+
     except Exception as e:
         st.error(f"データファイルの読み込みに失敗しました: {e}")
-        synonym_df = None  # ← fallback（読み込み失敗時）
         raise e
 
     return faiss_index, meddra_terms, synonym_df, term_master_df
+
 
 faiss_index, meddra_terms, synonym_df, term_master_df = load_assets()
 

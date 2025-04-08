@@ -39,6 +39,12 @@ def load_assets():
         # ✅ シノニム辞書（term→PT_Japanese変換）を読み込み
         synonym_df = pickle.load(open("synonym_df_cat1.pkl", "rb"))
         term_master_df = pickle.load(open("term_master_df.pkl", "rb"))
+        
+        # ✅✅ ここに追加してください（synonym_dfのカラム確認）
+        st.write("📌 synonym_df のカラム一覧:", synonym_df.columns.tolist())
+        st.write("📌 synonym_df の先頭5行:")
+        st.dataframe(synonym_df.head())        
+         
     except Exception as e:
         st.error(f"データファイルの読み込みに失敗しました: {e}")
         synonym_df = None  # ← fallback（読み込み失敗時）

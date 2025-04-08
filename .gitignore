@@ -21,6 +21,9 @@ config.toml
 # OpenAI / APIキー
 openai_key.txt
 
+# モデルファイル（100MB超）除外
+model_miniLM/
+
 # ログや一時ファイル
 *.log
 *.tmp

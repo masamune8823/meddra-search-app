@@ -36,7 +36,7 @@ def load_assets():
 
     try:
         meddra_terms = np.load("meddra_terms.npy", allow_pickle=True)
-        synonym_df = pickle.load(open("synonym_df_cat1.pkl", "rb"))
+        synonym_df = pickle.load(open("synonym_df.pkl", "rb"))
         
         # ✅ ここで一度カラムを確認
         st.write("📊 synonym_df 読み込み成功。カラム一覧:", synonym_df.columns.tolist())

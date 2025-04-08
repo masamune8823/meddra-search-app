@@ -28,7 +28,7 @@ import torch
 from sentence_transformers import SentenceTransformer
 
 # モデルロード
-model = SentenceTransformer("sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
+model = SentenceTransformer("./model_miniLM")
 
 # OpenAI APIキー（環境変数から取得）
 openai.api_key = os.getenv("OPENAI_API_KEY")

@@ -87,32 +87,29 @@ if st.sidebar.button("🗑️ 拡張語キャッシュを削除"):
     else:
         st.sidebar.warning("拡張語キャッシュは存在しません。")
 
-# ✅ synonym_df.pkl を初回作成するためのボタン（サイドバー）
-if st.sidebar.button("📌 synonym_df を生成（LLT→PT用）"):
+# ✅ synonym_df.pkl を再生成（variant / PT_Japanese のカラム構造に変換）
+if st.sidebar.button("📌 synonym_df.pkl を再生成（variant / PT_Japanese）"):
     try:
-        xlsx_path = "data/日本語シノニムV28.0一覧.xlsx"  # GitHub相対パス
-        df = pd.read_excel(xlsx_path, sheet_name=0)
+        xlsx_path = "data/日本語シノニムV28.0一覧.xlsx"
+        df = pd.read_excel(xlsx_path)
 
-        # ✅ カラムチェック（必要な2列があるか）
-        required_cols = {"llt_s_kanji", "pt_kanji"}
-        if not required_cols.issubset(df.columns):
-            raise ValueError("❌ synonym_df に必要なカラム（llt_s_kanji / pt_kanji）が見つかりません。")
+        if not {"llt_s_kanji", "pt_kanji"}.issubset(df.columns):
+            st.sidebar.error("❌ 必要なカラム（llt_s_kanji / pt_kanji）が見つかりません。")
+        else:
+            synonym_df = df.rename(columns={
+                "llt_s_kanji": "variant",
+                "pt_kanji": "PT_Japanese"
+            })[["variant", "PT_Japanese"]]
 
-        # ✅ カラム整形（variant: 表記ゆれ, PT_Japanese: 標準語）
-        synonym_df = df.rename(columns={
-            "llt_s_kanji": "variant",
-            "pt_kanji": "PT_Japanese"
-        })[["variant", "PT_Japanese"]]
+            synonym_df = synonym_df.dropna().query("variant != '' and PT_Japanese != ''").reset_index(drop=True)
 
-        synonym_df = synonym_df.dropna().query("variant != '' and PT_Japanese != ''").reset_index(drop=True)
+            with open("data/synonym_df.pkl", "wb") as f:
+                pickle.dump(synonym_df, f)
 
-        with open("data/synonym_df.pkl", "wb") as f:
-            pickle.dump(synonym_df, f)
-
-        st.sidebar.success("✅ synonym_df.pkl を作成しました！")
-
+            st.sidebar.success("✅ synonym_df.pkl を再生成しました！")
     except Exception as e:
-        st.sidebar.error(f"❌ 生成失敗: {e}")
+        st.sidebar.error(f"❌ エラーが発生しました: {e}")
+
 
 
 

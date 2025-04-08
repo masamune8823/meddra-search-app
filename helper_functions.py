@@ -164,7 +164,11 @@ def predict_soc_category(query):
         return "不明"
 
 # クエリ拡張（GPT使用）
-def expand_query_gpt(query):
+def expand_query_gpt(query, query_cache=None):
+    if query_cache is not None and query in query_cache:
+        return query_cache[query]
+
+    # GPTへ問い合わせ
     messages = [
         {"role": "system", "content": "あなたは日本語医療文を英語のキーワードに変換するアシスタントです。"},
         {"role": "user", "content": f"以下の日本語の症状から、英語の医学的キーワードを3つ予測してください。\n\n症状: {query}"}
@@ -176,9 +180,13 @@ def expand_query_gpt(query):
             temperature=0,
         )
         response_text = response.choices[0].message.content
-        return [kw.strip() for kw in response_text.split(",") if kw.strip()]
-    except Exception as e:
-        return ["headache", "nausea", "fever"]
+        keywords = [kw.strip() for kw in response_text.split(",") if kw.strip()]
+
+        if query_cache is not None:
+            query_cache[query] = keywords
+        return keywords
+    except:
+        return ["headache", "fever", "pain"]
 
 # 表示整形（キーワードリスト）
 def format_keywords(keywords):

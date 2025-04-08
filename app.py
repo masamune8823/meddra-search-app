@@ -103,7 +103,7 @@ if st.sidebar.button("📌 synonym_df.pkl を再生成（variant / PT_Japanese�
 
             synonym_df = synonym_df.dropna().query("variant != '' and PT_Japanese != ''").reset_index(drop=True)
 
-            with open("data/synonym_df.pkl", "wb") as f:
+            with open("synonym_df_cat1.pkl", "wb") as f:
                 pickle.dump(synonym_df, f)
 
             st.sidebar.success("✅ synonym_df.pkl を再生成しました！")

@@ -58,6 +58,13 @@ if st.button("検索"):
             predicted_keywords = predict_soc_category(query)
             # ✅ 新コード（キャッシュ付き）
             expanded_keywords = expand_query_gpt(query, query_cache)
+            
+            # ✅ ここに追加（キャッシュヒット確認）
+            if query in query_cache:
+                st.info("✅ クエリ拡張キャッシュを使用しました。")
+            else:
+                st.info("🆕 新しい拡張語を生成しました（キャッシュ追加済）。")
+        
             st.subheader("🧠 GPT予測キーワード（整形後）")
             st.write(predicted_keywords)
 

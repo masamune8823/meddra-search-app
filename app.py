@@ -88,30 +88,32 @@ if st.sidebar.button("🗑️ 拡張語キャッシュを削除"):
         st.sidebar.warning("拡張語キャッシュは存在しません。")
 
 # ✅ synonym_df.pkl を初回作成するためのボタン（サイドバー）
-if st.sidebar.button("📌 synonym_df を生成（初回のみ）"):
+if st.sidebar.button("📌 synonym_df を生成（LLT→PT用）"):
     try:
-        xlsx_path = "data/日本語シノニムV28.0一覧.xlsx"
-        if not os.path.exists(xlsx_path):
-            st.sidebar.error(f"❌ ファイルが見つかりません: {xlsx_path}")
-        else:
-            df = pd.read_excel(xlsx_path)
+        xlsx_path = "data/日本語シノニムV28.0一覧.xlsx"  # GitHub相対パス
+        df = pd.read_excel(xlsx_path, sheet_name=0)
 
-            # ✅ カラム確認とエラー対応
-            if not {"表記ゆれ", "標準語（MedDRA PT）"}.issubset(df.columns):
-                st.sidebar.error("❌ カラムが不足しています（表記ゆれ / 標準語（MedDRA PT））")
-            else:
-                synonym_df = df.rename(columns={
-                    "表記ゆれ": "variant",
-                    "標準語（MedDRA PT）": "PT_Japanese"
-                })[["variant", "PT_Japanese"]]
-                synonym_df = synonym_df.dropna().query("variant != '' and PT_Japanese != ''").reset_index(drop=True)
+        # ✅ カラムチェック（必要な2列があるか）
+        required_cols = {"llt_s_kanji", "pt_kanji"}
+        if not required_cols.issubset(df.columns):
+            raise ValueError("❌ synonym_df に必要なカラム（llt_s_kanji / pt_kanji）が見つかりません。")
 
-                with open("data/synonym_df.pkl", "wb") as f:
-                    pickle.dump(synonym_df, f)
+        # ✅ カラム整形（variant: 表記ゆれ, PT_Japanese: 標準語）
+        synonym_df = df.rename(columns={
+            "llt_s_kanji": "variant",
+            "pt_kanji": "PT_Japanese"
+        })[["variant", "PT_Japanese"]]
 
-                st.sidebar.success("✅ synonym_df.pkl を正常に作成しました！")
+        synonym_df = synonym_df.dropna().query("variant != '' and PT_Japanese != ''").reset_index(drop=True)
+
+        with open("data/synonym_df.pkl", "wb") as f:
+            pickle.dump(synonym_df, f)
+
+        st.sidebar.success("✅ synonym_df.pkl を作成しました！")
+
     except Exception as e:
-        st.sidebar.error(f"❌ synonym_df.pkl の作成中にエラーが発生しました: {e}")
+        st.sidebar.error(f"❌ 生成失敗: {e}")
+
 
 
 

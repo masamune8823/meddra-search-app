@@ -41,6 +41,10 @@ def load_assets():
 
 faiss_index, meddra_terms, synonym_df, term_master_df = load_assets()
 
+# キャッシュ読み込み
+score_cache = load_score_cache("score_cache.pkl")
+query_cache = load_query_cache("query_expansion_cache.pkl")
+
 # ---------------- ユーザー入力 ---------------- #
 query = st.text_input("検索語を入力してください（例：皮膚がかゆい）", value="ズキズキ")
 use_soc_filter = st.checkbox("GPTによるSOC予測でフィルタリング（推奨）", value=True)
@@ -52,6 +56,8 @@ if st.button("検索"):
     else:
         with st.spinner("キーワードを解析中..."):
             predicted_keywords = predict_soc_category(query)
+            # ✅ 新コード（キャッシュ付き）
+            expanded_keywords = expand_query_gpt(query, query_cache)
             st.subheader("🧠 GPT予測キーワード（整形後）")
             st.write(predicted_keywords)
 
@@ -123,6 +129,13 @@ if st.button("検索"):
         if st.button("🔍 テスト実行（ズキズキ）"):
             from test_meddra_full_pipeline import run_test_pipeline
             run_test_pipeline()
+
+        # ✅ キャッシュの保存（検索完了後）
+        with open("score_cache.pkl", "wb") as f:
+            pickle.dump(score_cache, f)
+
+        with open("query_expansion_cache.pkl", "wb") as f:
+            pickle.dump(query_cache, f)
 
         # ✅ ステップA：意味的に近い用語候補を表示（ズキズキ → 頭痛など）
         with st.expander("🧠 類似語候補を表示（ベクトル検索）"):

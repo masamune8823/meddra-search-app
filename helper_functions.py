@@ -184,6 +184,23 @@ def expand_query_gpt(query, query_cache=None):
 """}
     ]
 
+def expand_query_gpt(query, query_cache=None):
+    if query_cache is not None and query in query_cache:
+        return query_cache[query]
+
+    # GPTへ問い合わせ（具体的な症状名を求めるように改善）
+    messages = [
+        {"role": "system", "content": "あなたは日本語のあいまいな症状表現を、正確な英語の医学用語に変換する専門家です。"},
+        {"role": "user", "content": f"""
+以下の日本語の症状「{query}」について、具体的に考えられる医学的な症状名や疾患名（英語）を3つ予測してください。
+
+例：「ズキズキ」→ "headache", "migraine", "throbbing pain"
+
+・曖昧なカテゴリ（例：神経系障害）ではなく、具体的な症状名や疾患名を出力してください。
+・必ず3つ、カンマ区切りで出力してください。
+"""}
+    ]
+
     try:
         response = client.chat.completions.create(
             model="gpt-3.5-turbo",
@@ -197,12 +214,26 @@ def expand_query_gpt(query, query_cache=None):
         st.subheader("📥 GPT 生レスポンス内容（拡張語）")
         st.code(response_text)
 
-        keywords = [kw.strip() for kw in response_text.split(",") if kw.strip()]
+        # 🔧 整形処理（番号 or カンマ対応）
+        raw_lines = response_text.strip().split("\n")
+
+        keywords = []
+        for line in raw_lines:
+            line = re.sub(r'^\d+\.\s*', '', line)
+            line = line.strip().strip('"')
+            if line:
+                keywords.append(line)
+
+        if not keywords:
+            keywords = [kw.strip().strip('"') for kw in response_text.split(",") if kw.strip()]
+
         if query_cache is not None:
             query_cache[query] = keywords
         return keywords
+
     except Exception as e:
         return ["headache", "fever", "pain"]
+
 
 # 表示整形（キーワードリスト）
 def format_keywords(keywords):

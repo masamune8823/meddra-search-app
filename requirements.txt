@@ -1,7 +1,7 @@
-streamlit
-pandas
-numpy
+streamlit>=1.25.0
+sentence-transformers>=2.2.2
 faiss-cpu
 openai
-torch
-sentence-transformers
+pandas
+numpy
+scikit-learn

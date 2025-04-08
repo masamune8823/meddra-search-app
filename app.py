@@ -59,12 +59,12 @@ if st.sidebar.button("🗑️ スコアキャッシュを削除"):
 
 # ✅ Streamlitサイドバーにクエリ拡張キャッシュ削除ボタンを追加
 if st.sidebar.button("🗑️ 拡張語キャッシュを削除"):
-    if os.path.exists("query_expansion_cache.pkl"):
-        os.remove("query_expansion_cache.pkl")
+    if os.path.exists(QUERY_CACHE_PATH):
+        os.remove(QUERY_CACHE_PATH)
         query_cache = {}
-        st.sidebar.success("✅ query_expansion_cache.pkl を削除しました。再実行時に再作成されます。")
+        st.sidebar.success("拡張語キャッシュを削除しました。")
     else:
-        st.sidebar.warning("⚠️ query_expansion_cache.pkl はすでに存在しません。")
+        st.sidebar.warning("拡張語キャッシュは存在しません。")
 
 # ---------------- ユーザー入力 ---------------- #
 query = st.text_input("検索語を入力してください（例：皮膚がかゆい）", value="ズキズキ")

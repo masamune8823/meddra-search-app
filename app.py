@@ -81,13 +81,14 @@ if st.sidebar.button("📌 synonym_df を生成（初回のみ）"):
         })[["variant", "PT_Japanese"]]
         synonym_df = synonym_df.dropna().query("variant != '' and PT_Japanese != ''").reset_index(drop=True)
 
-        # 保存先を明示
-        with open("data/synonym_df.pkl", "wb") as f:
+        # ✅ 保存ファイル名を synonym_df_cat1.pkl に変更
+        with open("synonym_df_cat1.pkl", "wb") as f:
             pickle.dump(synonym_df, f)
 
-        st.sidebar.success("✅ synonym_df.pkl を作成しました！")
+        st.sidebar.success("✅ synonym_df_cat1.pkl を作成しました！")
     except Exception as e:
         st.sidebar.error(f"❌ 生成失敗: {e}")
+
 
 
 

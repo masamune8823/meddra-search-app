@@ -1,4 +1,19 @@
-# ✅ ファイルの先頭に一度だけ書く
+
+# キャッシュファイルの読み込み（必要に応じて呼び出し）
+def load_score_cache(path="score_cache.pkl"):
+    try:
+        with open(path, "rb") as f:
+            return pickle.load(f)
+    except:
+        return {}
+
+def load_query_cache(path="query_expansion_cache.pkl"):
+    try:
+        with open(path, "rb") as f:
+            return pickle.load(f)
+    except:
+        return {}
+
 from openai import OpenAI
 client = OpenAI()
 

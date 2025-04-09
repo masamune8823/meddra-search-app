@@ -129,8 +129,6 @@ if st.button("検索"):
         # ✅ STEP 5.5: LLT → PT の補完処理（term → PT_Japanese に正規化）
         try:
             llt_df = pd.read_csv("data/1_low_level_term_j.csv", encoding="utf-8-sig")
-        except UnicodeDecodeError:
-            llt_df = pd.read_csv(llt_path, encoding="cp932")
             
             if not os.path.exists(llt_path):
                 raise FileNotFoundError(f"{llt_path} が見つかりません。")

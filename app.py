@@ -126,10 +126,24 @@ if st.button("検索"):
             reranked = rerank_results_batch(query, all_results, score_cache)
             reranked["score"] = rescale_scores(reranked["Relevance"].tolist())
             
+        # ✅ STEP 5.5: LLT → PT の補完処理（term → PT_Japanese に正規化）
+        try:
+            llt_df = pd.read_csv("data/1_low_level_term_j.csv")
+            llt_to_pt = dict(zip(llt_df["LLT_Japanese"], llt_df["PT_Japanese"]))
+            reranked["term_mapped"] = reranked["term"].map(llt_to_pt).fillna(reranked["term"])
+            st.write("🧭 term → PT変換後のユニーク語数:", reranked["term_mapped"].nunique())
+        except Exception as e:
+            st.warning(f"LLT→PT変換処理でエラーが発生しました: {e}")
+            reranked["term_mapped"] = reranked["term"]
+
         # ✅ STEP 6: MedDRA階層付加
         with st.spinner("階層情報を付加中..."):
-            st.write("列名チェック（reranked）:", reranked.columns.tolist())  # ← ここ追加
-            final_results = add_hierarchy_info_jp(reranked, term_master_df)
+            st.write("列名チェック（reranked）:", reranked.columns.tolist())  
+            final_results = add_hierarchy_info_jp(
+                reranked.rename(columns={"term_mapped": "term"}),
+                term_master_df
+        )
+
             st.write("🧩 final_results の列一覧:", final_results.columns.tolist())  # ← 🔍 SOC列があるか確認
 
             st.write("🔍 マージ対象語数:", len(reranked))
@@ -139,6 +153,7 @@ if st.button("検索"):
             if unmatched_terms:
                 st.warning("🧯 階層マスタに一致しなかった用語（PT_English）:")
                 st.write(list(unmatched_terms))
+                
         # ✅ STEP 7: SOCフィルタ
         if use_soc_filter:
              try:

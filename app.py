@@ -185,13 +185,21 @@ if st.button("検索"):
                 except Exception as e:
                     st.warning(f"⚠️ term列のプレビュー表示中にエラー: {e}")
 
-                # STEP 6.3: 階層情報をマージ
+                # STEP 6.3: 階層情報をマージ（term_master_df に PT_Japanese がある前提）
                 try:
-                    final_results = add_hierarchy_info_jp(df_for_merge, term_master_df)
+                    final_results = pd.merge(
+                        df_for_merge,
+                        term_master_df,
+                        how="left",
+                        left_on="term",
+                        right_on="PT_Japanese",
+                        suffixes=("", "_master")  # ← term が重複しないように
+                    )
                 except Exception as e:
                     st.error(f"❌ 階層マスタとのマージでエラー: {e}")
                     final_results = df_for_merge.copy()
                     final_results["PT_Japanese"] = ""
+
 
                 # STEP 6.4: 結果ログ出力
                 st.write("🧩 final_results の列一覧:", final_results.columns.tolist())

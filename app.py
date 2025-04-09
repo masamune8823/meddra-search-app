@@ -167,38 +167,36 @@ if st.button("検索"):
             # ✅ STEP 6: MedDRA階層付加
             with st.spinner("階層情報を付加中..."):
 
-                # ✅ STEP 6.1: term_mapped → term に変換（なければそのまま）
+                # ✅ STEP 6.1: term_mapped → term に変換（存在すれば変換）
                 if "term_mapped" in reranked.columns:
                     df_for_merge = reranked.rename(columns={"term_mapped": "term"}).copy()
                     st.info("🛠️ 'term_mapped' を 'term' にリネームしてマージ対象に設定")
                 else:
                     df_for_merge = reranked.copy()
                     if "term" not in df_for_merge.columns:
-                        st.warning("⚠️ 'term' 列が存在しないため、空列で補完します")
-                        df_for_merge["term"] = ""  # fallback空列を追加
+                        st.warning("⚠️ 'term' 列が存在しないため、空列を追加します")
+                        df_for_merge["term"] = ""
 
-                # ✅ STEP 6.2: term列の安全なチェックと出力
-                if "term" in df_for_merge.columns:
+                # ✅ STEP 6.2: term列の内容（デバッグ出力）← エラーが起きていた箇所
+                try:
                     preview = df_for_merge["term"].dropna().unique().tolist()
                     st.write("🧭 term列（階層付加用）のユニーク値（抜粋）:", preview[:10])
-                else:
-                    st.error("❌ 'term' 列が見つかりません。マージ処理を中断します。")
-                    final_results = pd.DataFrame()
-                    st.stop()
+                except Exception as e:
+                    st.warning(f"⚠️ term列の中身表示でエラーが発生しました: {e}")
 
-                # ✅ STEP 6.3: マージ処理
+                # ✅ STEP 6.3: term_master_df とのマージ
                 final_results = add_hierarchy_info_jp(df_for_merge, term_master_df)
 
-                # ✅ STEP 6.4: 結果の確認
+                # ✅ STEP 6.4: 結果の構造確認
                 st.write("🧩 final_results の列一覧:", final_results.columns.tolist())
                 st.write("🔍 マージ対象語数:", len(df_for_merge))
                 st.write("🔍 階層付与後件数:", len(final_results))
 
-                # ✅ STEP 6.5: マッチしなかった用語のチェック
                 unmatched_terms = set(df_for_merge["term"]) - set(final_results["PT_English"].dropna())
                 if unmatched_terms:
                     st.warning("🧯 階層マスタに一致しなかった用語（PT_English）:")
                     st.write(list(unmatched_terms)[:10])
+
 
 
                 

@@ -166,6 +166,7 @@ if st.button("検索"):
 
             # ✅ STEP 6: MedDRA階層付加
             with st.spinner("階層情報を付加中..."):
+
                 # ✅ STEP 6.1: term_mapped → term に変換（なければそのまま）
                 if "term_mapped" in reranked.columns:
                     df_for_merge = reranked.rename(columns={"term_mapped": "term"}).copy()
@@ -173,18 +174,16 @@ if st.button("検索"):
                 else:
                     df_for_merge = reranked.copy()
                     if "term" not in df_for_merge.columns:
-                        df_for_merge["term"] = ""  # 最悪の fallback
-                        st.warning("⚠️ 'term' 列が存在しないため、空列で補完")
+                        st.warning("⚠️ 'term' 列が存在しないため、空列で補完します")
+                        df_for_merge["term"] = ""  # fallback空列を追加
 
-                # ✅ STEP 6.2: カラム存在確認と内容確認（エラー防止の決定打）
-                cols = df_for_merge.columns.tolist()
-                st.write("📋 df_for_merge.columns:", cols)
-                if "term" in cols:
-                    preview = df_for_merge["term"].dropna().unique()[:10]
-                    st.write("🧭 term列（階層付加用）のユニーク値（抜粋）:", preview)
+                # ✅ STEP 6.2: term列の安全なチェックと出力
+                if "term" in df_for_merge.columns:
+                    preview = df_for_merge["term"].dropna().unique().tolist()
+                    st.write("🧭 term列（階層付加用）のユニーク値（抜粋）:", preview[:10])
                 else:
-                    st.error("❌ 'term' 列が見つかりません。マージを中断します。")
-                    final_results = pd.DataFrame()  # 空にして後段エラーを回避
+                    st.error("❌ 'term' 列が見つかりません。マージ処理を中断します。")
+                    final_results = pd.DataFrame()
                     st.stop()
 
                 # ✅ STEP 6.3: マージ処理

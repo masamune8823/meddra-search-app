@@ -166,30 +166,31 @@ if st.button("検索"):
 
             # ✅ STEP 6: MedDRA階層付加
             with st.spinner("階層情報を付加中..."):
-                # term_mapped → term に変換（存在しない場合は fallback）
+                # ✅ STEP 6.1: term_mapped → term に変換（なければそのまま）
                 if "term_mapped" in reranked.columns:
                     df_for_merge = reranked.rename(columns={"term_mapped": "term"})
                 else:
                     df_for_merge = reranked.copy()
 
-                # デバッグ出力（term 列の中身確認）
-                if "term" in df_for_merge.columns:
-                    st.write("🧭 term列（階層付加用）のユニーク値（抜粋）:", df_for_merge["term"].dropna().unique()[:10])
-                else:
-                    st.warning("❌ term列が見つかりません。")
+            # ✅ STEP 6.2: デバッグ表示（term列の存在確認とサンプル）
+            if "term" in df_for_merge.columns:
+                st.write("🧭 term列（階層付加用）のユニーク値（抜粋）:", df_for_merge["term"].dropna().unique()[:10])
+            else:
+                st.warning("❌ term列が見つかりません。")
 
-                final_results = add_hierarchy_info_jp(df_for_merge, term_master_df)
+            # ✅ STEP 6.3: MedDRA階層マージ処理
+            final_results = add_hierarchy_info_jp(df_for_merge, term_master_df)
 
+            # ✅ STEP 6.4: マージ結果のデバッグ表示
+            st.write("🧩 final_results の列一覧:", final_results.columns.tolist())  # ← 🔍 SOC列があるか確認
+            st.write("🔍 マージ対象語数:", len(reranked))
+            st.write("🔍 階層付与後件数:", len(final_results))
 
-                st.write("🧩 final_results の列一覧:", final_results.columns.tolist())  # ← 🔍 SOC列があるか確認
+            unmatched_terms = set(reranked["term"]) - set(final_results["PT_English"].dropna())
+            if unmatched_terms:
+                st.warning("🧯 階層マスタに一致しなかった用語（PT_English）:")
+                st.write(list(unmatched_terms))
 
-                st.write("🔍 マージ対象語数:", len(reranked))
-                st.write("🔍 階層付与後件数:", len(final_results))
-
-                unmatched_terms = set(reranked["term"]) - set(final_results["PT_English"].dropna())
-                if unmatched_terms:
-                    st.warning("🧯 階層マスタに一致しなかった用語（PT_English）:")
-                    st.write(list(unmatched_terms))
 
                 
         # ✅ STEP 7: SOCフィルタ

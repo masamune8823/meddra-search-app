@@ -164,19 +164,22 @@ if st.button("検索"):
 
 
 
-        # ✅ STEP 6: MedDRA階層付加
-        if "term_mapped" not in reranked.columns:
-            st.error("❌ term_mapped カラムが存在しません。LLT→PT変換に失敗している可能性があります。")
-        else:
+            # ✅ STEP 6: MedDRA階層付加
             with st.spinner("階層情報を付加中..."):
-                # ① term_mapped → term に変換して一時DataFrameとして保存
-                df_for_merge = reranked.rename(columns={"term_mapped": "term"})
+                # term_mapped → term に変換（存在しない場合は fallback）
+                if "term_mapped" in reranked.columns:
+                    df_for_merge = reranked.rename(columns={"term_mapped": "term"})
+                else:
+                    df_for_merge = reranked.copy()
 
-                # ② term カラムの存在と中身をデバッグ出力
-                st.write("🧭 term列（階層付加用）のユニーク値（抜粋）:", df_for_merge["term"].dropna().unique()[:10])
+                # デバッグ出力（term 列の中身確認）
+                if "term" in df_for_merge.columns:
+                    st.write("🧭 term列（階層付加用）のユニーク値（抜粋）:", df_for_merge["term"].dropna().unique()[:10])
+                else:
+                    st.warning("❌ term列が見つかりません。")
 
-                # ③ 通常どおりマージ処理に進む
                 final_results = add_hierarchy_info_jp(df_for_merge, term_master_df)
+
 
                 st.write("🧩 final_results の列一覧:", final_results.columns.tolist())  # ← 🔍 SOC列があるか確認
 

@@ -195,9 +195,9 @@ if st.button("検索"):
                             right_on="PT_Japanese",
                             suffixes=("", "_master")  # term列の重複を避ける
                     )
-                    except Exception as e:
-                        st.error(f"❌ 階層マスタとのマージでエラー: {e}")
-                        final_results = df_for_merge.copy()
+                except Exception as e:
+                    st.error(f"❌ 階層マスタとのマージでエラー: {e}")
+                    final_results = df_for_merge.copy()
 
 
                     # ✅ term列が明示されたDataFrameのみに絞って比較

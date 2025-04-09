@@ -128,7 +128,7 @@ if st.button("検索"):
             
         # ✅ STEP 5.5: LLT → PT の補完処理（term → PT_Japanese に正規化）
         try:
-            llt_df = pd.read_csv("data/1_low_level_term_j.csv", encoding="cp932")
+            llt_df = pd.read_csv("data/1_low_level_term_j.csv", encoding="utf-8-sig")
             if not os.path.exists(llt_path):
                 raise FileNotFoundError(f"{llt_path} が見つかりません。")
 
@@ -191,19 +191,27 @@ if st.button("検索"):
                     if "term_mapped" not in reranked.columns:
                         reranked["term_mapped"] = reranked["term"]
 
-                    final_results = pd.merge(
+                    # ✅ term_master_dfに "term" 列があれば削除（念のため）
+                    term_master_clean = term_master_df.drop(columns=["term"], errors="ignore")
+
+                final_results = pd.merge(
                         reranked,
-                        term_master_df,
+                        term_master_clean,
                         how="left",
                         left_on="term_mapped",
                         right_on="PT_Japanese",
                         suffixes=("", "_master")
                     )
 
+                    # ✅ 重複カラムがある場合、除去（Streamlitエラー防止）
+                    if final_results.columns.duplicated().any():
+                        final_results = final_results.loc[:, ~final_results.columns.duplicated()]
+
                     st.write("🧩 final_results の列一覧（直後）:", final_results.columns.tolist())
                 except Exception as e:
                     st.error(f"❌ 階層マスタとのマージでエラー: {e}")
                     final_results = reranked.copy()
+
 
 
                 # ✅ STEP 6.4: マージ後の確認と未一致チェック

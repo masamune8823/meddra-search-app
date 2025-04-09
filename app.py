@@ -132,6 +132,19 @@ if st.button("検索"):
             llt_to_pt = dict(zip(llt_df["LLT_Japanese"], llt_df["PT_Japanese"]))
             reranked["term_mapped"] = reranked["term"].map(llt_to_pt).fillna(reranked["term"])
             st.write("🧭 term → PT変換後のユニーク語数:", reranked["term_mapped"].nunique())
+            
+            
+            # ✅ デバッグ：変換後のユニーク語一覧（抜粋）
+            mapped_terms = reranked["term_mapped"].unique().tolist()
+            st.write("📌 term_mapped（変換後）抜粋:", mapped_terms[:10])
+
+            # ✅ デバッグ：PT_Japanese にマッチしなかった term_mapped のチェック
+            pt_set = set(term_master_df["PT_Japanese"].dropna())
+            unmatched_pt = set(reranked["term_mapped"]) - pt_set
+            st.warning("🧯 PT_Japanese に存在しない term_mapped（上位10件）:")
+            st.write(list(unmatched_pt)[:10])
+            
+            
         except Exception as e:
             st.warning(f"LLT→PT変換処理でエラーが発生しました: {e}")
             reranked["term_mapped"] = reranked["term"]

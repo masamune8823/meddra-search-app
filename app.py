@@ -188,28 +188,26 @@ if st.button("検索"):
                 # STEP 6.3: 階層情報をマージ（term_master_df に PT_Japanese がある前提）
                 try:
                     final_results = pd.merge(
-                        df_for_merge,
-                        term_master_df,
-                        how="left",
-                        left_on="term",
-                        right_on="PT_Japanese",
-                        suffixes=("", "_master")  # ← term が重複しないように
+                            df_for_merge,
+                            term_master_df,
+                            how="left",
+                            left_on="term",
+                            right_on="PT_Japanese",
+                            suffixes=("", "_master")  # term列の重複を避ける
                     )
-                except Exception as e:
-                    st.error(f"❌ 階層マスタとのマージでエラー: {e}")
-                    final_results = df_for_merge.copy()
-                    final_results["PT_Japanese"] = ""
+                    except Exception as e:
+                        st.error(f"❌ 階層マスタとのマージでエラー: {e}")
+                        final_results = df_for_merge.copy()
 
 
-                # STEP 6.4: 結果ログ出力
-                st.write("🧩 final_results の列一覧:", final_results.columns.tolist())
-                st.write("🔍 マージ対象語数:", len(df_for_merge))
-                st.write("🔍 階層付与後件数:", len(final_results))
+                    # ✅ term列が明示されたDataFrameのみに絞って比較
+                    base_terms = set(df_for_merge["term"]) if "term" in df_for_merge.columns else set()
+                    hier_terms = set(final_results["PT_Japanese"].dropna()) if "PT_Japanese" in final_results.columns else set()
 
-                unmatched_terms = set(df_for_merge["term"]) - set(final_results["PT_English"].dropna())
-                if unmatched_terms:
-                    st.warning("🧯 階層マスタに一致しなかった用語（PT_English）:")
-                    st.write(list(unmatched_terms)[:10])
+                    unmatched_terms = base_terms - hier_terms
+                    if unmatched_terms:
+                        st.warning("🧯 階層マスタに一致しなかった用語（PT_Japanese）:")
+                        st.write(list(unmatched_terms)[:10])
 
 
                 

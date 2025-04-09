@@ -151,11 +151,14 @@ if st.button("検索"):
 
         # ✅ STEP 6: MedDRA階層付加
         with st.spinner("階層情報を付加中..."):
-            st.write("列名チェック（reranked）:", reranked.columns.tolist())  
-            final_results = add_hierarchy_info_jp(
-                reranked.rename(columns={"term_mapped": "term"}),
-                term_master_df
-        )
+            # ① term_mapped → term に変換して一時DataFrameとして保存
+            df_for_merge = reranked.rename(columns={"term_mapped": "term"})
+
+            # ② term カラムの存在と中身をデバッグ出力
+            st.write("🧭 term列（階層付加用）のユニーク値（抜粋）:", df_for_merge["term"].dropna().unique()[:10])
+
+            # ③ 通常どおりマージ処理に進む
+            final_results = add_hierarchy_info_jp(df_for_merge, term_master_df)
 
             st.write("🧩 final_results の列一覧:", final_results.columns.tolist())  # ← 🔍 SOC列があるか確認
 

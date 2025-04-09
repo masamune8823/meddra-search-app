@@ -185,23 +185,24 @@ if st.button("検索"):
                 except Exception as e:
                     st.warning(f"⚠️ term列のプレビュー表示中にエラー: {e}")
 
-                # STEP 6.3: 階層情報をマージ（term_master_df に PT_Japanese がある前提）
+                # STEP 6.3: 階層情報をマージ（term_mapped → PT_Japanese）
                 try:
+                    if "term_mapped" not in reranked.columns:
+                        reranked["term_mapped"] = reranked["term"]
+
                     final_results = pd.merge(
-                        df_for_merge,
+                        reranked,
                         term_master_df,
                         how="left",
-                        left_on="term",
+                        left_on="term_mapped",
                         right_on="PT_Japanese",
-                        suffixes=("", "_master")  # term列の重複を避ける
+                        suffixes=("", "_master")
                     )
-                    # 🔽 ここでカラム確認を即出力 🔽
-                    st.write("🧩 final_results の列一覧（直後）:", final_results.columns.tolist())                    
-                    
-                    
+
+                    st.write("🧩 final_results の列一覧（直後）:", final_results.columns.tolist())
                 except Exception as e:
                     st.error(f"❌ 階層マスタとのマージでエラー: {e}")
-                    final_results = df_for_merge.copy()
+                    final_results = reranked.copy()
 
 
                 # ✅ STEP 6.4: マージ後の確認と未一致チェック
@@ -236,17 +237,14 @@ if st.button("検索"):
 
                 st.success("検索完了")
 
-            # STEP 8.1: 表示対象カラム（存在チェック付き）
+            # STEP 8: 表示対象カラム（存在チェック付き）
             display_cols = [
                 "term", "score",
                 "PT_Japanese", "HLT_Japanese", "HLGT_Japanese", "SOC_Japanese"
             ]
             available_cols = [col for col in display_cols if col in final_results.columns]
 
-            # STEP 8.2: 重複カラムの除去（とりあえず 'term' が2つある想定）
-            final_results = final_results.loc[:, ~final_results.columns.duplicated()]
-
-            # STEP 8.3: 日本語に変換して表示
+            # STEP 8.1: 日本語に変換して表示
             st.dataframe(
                 final_results[available_cols].rename(columns={
                     "term": "用語（再スコア対象語）",

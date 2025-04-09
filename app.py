@@ -188,15 +188,15 @@ if st.button("検索"):
                 # STEP 6.3: 階層情報をマージ（term_master_df に PT_Japanese がある前提）
                 try:
                     final_results = pd.merge(
-                            df_for_merge,
-                            term_master_df,
-                            how="left",
-                            left_on="term",
-                            right_on="PT_Japanese",
-                            suffixes=("", "_master")  # term列の重複を避ける
+                        df_for_merge,
+                        term_master_df,
+                        how="left",
+                        left_on="term",
+                        right_on="PT_Japanese",
+                        suffixes=("", "_master")  # term列の重複を避ける
                     )
-                   # 🔽 ここでカラム確認を即出力 🔽
-                   st.write("🧩 final_results の列一覧（直後）:", final_results.columns.tolist())                    
+                    # 🔽 ここでカラム確認を即出力 🔽
+                    st.write("🧩 final_results の列一覧（直後）:", final_results.columns.tolist())                    
                     
                     
                 except Exception as e:

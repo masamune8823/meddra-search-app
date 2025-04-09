@@ -127,11 +127,12 @@ if st.button("検索"):
             reranked["score"] = rescale_scores(reranked["Relevance"].tolist())
             
         # ✅ STEP 5.5: LLT → PT の補完処理（term → PT_Japanese に正規化）
+        llt_path = "data/1_low_level_term_j.csv"
         try:
-            llt_df = pd.read_csv("data/1_low_level_term_j.csv", encoding="utf-8-sig")
-            
-            if not os.path.exists(llt_path):
-                raise FileNotFoundError(f"{llt_path} が見つかりません。")
+            llt_df = pd.read_csv(llt_path, encoding="cp932")  # ← SJIS前提に一本化
+        except Exception as e:
+            st.warning(f"LLT→PT変換処理でエラーが発生しました: {e}")
+            reranked["term_mapped"] = reranked["term"]
 
             llt_df = pd.read_csv(llt_path)
             llt_to_pt = dict(zip(llt_df["LLT_Japanese"], llt_df["PT_Japanese"]))

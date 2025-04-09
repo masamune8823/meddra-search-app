@@ -194,14 +194,21 @@ if st.button("検索"):
                     if "term_mapped" not in reranked.columns:
                         reranked["term_mapped"] = reranked["term"]
 
+                    # ✅ term_master_dfに "term" 列があれば削除（念のため）
+                    term_master_clean = term_master_df.drop(columns=["term"], errors="ignore")
+
                     final_results = pd.merge(
                         reranked,
-                        term_master_df,
+                        term_master_clean,
                         how="left",
                         left_on="term_mapped",
                         right_on="PT_Japanese",
                         suffixes=("", "_master")
                     )
+
+                    # ✅ 重複カラムがある場合、除去（Streamlitエラー防止）
+                    if final_results.columns.duplicated().any():
+                        final_results = final_results.loc[:, ~final_results.columns.duplicated()]
 
                     st.write("🧩 final_results の列一覧（直後）:", final_results.columns.tolist())
                 except Exception as e:
@@ -222,7 +229,6 @@ if st.button("検索"):
                 if unmatched_terms:
                     st.warning("🧯 階層マスタに一致しなかった用語（PT_Japanese）:")
                     st.write(list(unmatched_terms)[:10])
-
 
                 
             # ✅ STEP 7: SOCフィルタ

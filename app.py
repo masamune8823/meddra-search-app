@@ -128,7 +128,7 @@ if st.button("検索"):
             
         # ✅ STEP 5.5: LLT → PT の補完処理（term → PT_Japanese に正規化）
         try:
-            llt_path = "data/1_low_level_term_j.csv"
+            llt_df = pd.read_csv("data/1_low_level_term_j.csv", encoding="cp932")
             if not os.path.exists(llt_path):
                 raise FileNotFoundError(f"{llt_path} が見つかりません。")
 
@@ -182,6 +182,7 @@ if st.button("検索"):
                     if "term" in df_for_merge.columns:
                         preview = df_for_merge["term"].dropna().astype(str).unique().tolist()
                         st.write("🧭 term列（階層付加用）のユニーク値（抜粋）:", preview[:10])
+                        st.write("📌 df_for_merge のカラム一覧:", df_for_merge.columns.tolist())
                 except Exception as e:
                     st.warning(f"⚠️ term列のプレビュー表示中にエラー: {e}")
 
@@ -206,7 +207,7 @@ if st.button("検索"):
 
 
                 # ✅ STEP 6.4: マージ後の確認と未一致チェック
-                st.write("🧩 final_results の列一覧:", final_results.columns.tolist())
+                st.write("🧩 final_results の列一覧（STEP 6.4）:", final_results.columns.tolist())
                 st.write("🔍 マージ対象語数:", len(df_for_merge))
                 st.write("🔍 階層付与後件数:", len(final_results))
                 st.write("📂 term_master_df の列一覧:", term_master_df.columns.tolist())

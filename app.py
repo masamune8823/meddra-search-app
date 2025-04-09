@@ -204,7 +204,8 @@ if st.button("検索"):
                 st.write("🧩 final_results の列一覧:", final_results.columns.tolist())
                 st.write("🔍 マージ対象語数:", len(df_for_merge))
                 st.write("🔍 階層付与後件数:", len(final_results))
-
+                st.write("📂 term_master_df の列一覧:", term_master_df.columns.tolist())
+                
                 base_terms = set(df_for_merge["term"]) if "term" in df_for_merge.columns else set()
                 hier_terms = set(final_results["PT_Japanese"].dropna()) if "PT_Japanese" in final_results.columns else set()
 
@@ -215,19 +216,21 @@ if st.button("検索"):
 
 
                 
-        # ✅ STEP 7: SOCフィルタ
-        if use_soc_filter:
-             try:
-                soc_prediction = predict_soc_category(query)
-                # ✅ 修正：SOC_Japanese にフィルタを適用
-                # 🔍 NaN対策 + フィルタ
-                final_results = final_results[final_results["SOC_Japanese"].fillna("").astype(str).str.contains(soc_prediction)]
-                st.write(f"🔍 フィルタ前: {len(final_results)} 件 → フィルタ後: {len(final_results[final_results['SOC_Japanese'].fillna('').str.contains(soc_prediction)])} 件")
+            # ✅ STEP 7: SOCフィルタ
+            if use_soc_filter:
+                try:
+                    soc_prediction = predict_soc_category(query)
+                    if "SOC_Japanese" in final_results.columns:
+                        final_results = final_results[
+                            final_results["SOC_Japanese"].fillna("").astype(str).str.contains(soc_prediction)
+                        ]
+                        st.write(f"🔍 フィルタ前: {len(df_for_merge)} 件 → フィルタ後: {len(final_results)} 件")
+                    else:
+                        st.warning("⚠️ final_results に 'SOC_Japanese' 列が存在しません。フィルタをスキップします。")
+                except Exception as e:
+                    st.warning(f"フィルタ処理でエラーが発生しました: {e}")
 
-             except Exception as e:
-                st.warning(f"フィルタ処理でエラーが発生しました: {e}")
-
-        st.success("検索完了")
+                st.success("検索完了")
 
         # ✅ STEP 8: 結果表示  表示する列を日本語の階層構造で拡張
         display_cols = [

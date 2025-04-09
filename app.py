@@ -195,6 +195,10 @@ if st.button("検索"):
                             right_on="PT_Japanese",
                             suffixes=("", "_master")  # term列の重複を避ける
                     )
+                   # 🔽 ここでカラム確認を即出力 🔽
+                   st.write("🧩 final_results の列一覧（直後）:", final_results.columns.tolist())                    
+                    
+                    
                 except Exception as e:
                     st.error(f"❌ 階層マスタとのマージでエラー: {e}")
                     final_results = df_for_merge.copy()

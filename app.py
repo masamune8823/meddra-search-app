@@ -167,27 +167,33 @@ if st.button("検索"):
             # ✅ STEP 6: MedDRA階層付加
             with st.spinner("階層情報を付加中..."):
 
-                # ✅ STEP 6.1: term_mapped → term に変換（存在すれば変換）
+                # STEP 6.1: term列の準備（term_mapped → term にリネーム or fallback で空列追加）
                 if "term_mapped" in reranked.columns:
                     df_for_merge = reranked.rename(columns={"term_mapped": "term"}).copy()
-                    st.info("🛠️ 'term_mapped' を 'term' にリネームしてマージ対象に設定")
-                else:
+                elif "term" in reranked.columns:
                     df_for_merge = reranked.copy()
-                    if "term" not in df_for_merge.columns:
-                        st.warning("⚠️ 'term' 列が存在しないため、空列を追加します")
-                        df_for_merge["term"] = ""
+                else:
+                    st.warning("⚠️ 'term' 列が存在しないため、空列を追加します。")
+                    df_for_merge = reranked.copy()
+                    df_for_merge["term"] = ""
 
-                # ✅ STEP 6.2: term列の内容（デバッグ出力）← エラーが起きていた箇所
+                # STEP 6.2: デバッグ出力
                 try:
-                    preview = df_for_merge["term"].dropna().unique().tolist()
-                    st.write("🧭 term列（階層付加用）のユニーク値（抜粋）:", preview[:10])
+                    if "term" in df_for_merge.columns:
+                        preview = df_for_merge["term"].dropna().astype(str).unique().tolist()
+                        st.write("🧭 term列（階層付加用）のユニーク値（抜粋）:", preview[:10])
                 except Exception as e:
-                    st.warning(f"⚠️ term列の中身表示でエラーが発生しました: {e}")
+                    st.warning(f"⚠️ term列のプレビュー表示中にエラー: {e}")
 
-                # ✅ STEP 6.3: term_master_df とのマージ
-                final_results = add_hierarchy_info_jp(df_for_merge, term_master_df)
+                # STEP 6.3: 階層情報をマージ
+                try:
+                    final_results = add_hierarchy_info_jp(df_for_merge, term_master_df)
+                except Exception as e:
+                    st.error(f"❌ 階層マスタとのマージでエラー: {e}")
+                    final_results = df_for_merge.copy()
+                    final_results["PT_Japanese"] = ""
 
-                # ✅ STEP 6.4: 結果の構造確認
+                # STEP 6.4: 結果ログ出力
                 st.write("🧩 final_results の列一覧:", final_results.columns.tolist())
                 st.write("🔍 マージ対象語数:", len(df_for_merge))
                 st.write("🔍 階層付与後件数:", len(final_results))
@@ -196,7 +202,6 @@ if st.button("検索"):
                 if unmatched_terms:
                     st.warning("🧯 階層マスタに一致しなかった用語（PT_English）:")
                     st.write(list(unmatched_terms)[:10])
-
 
 
                 

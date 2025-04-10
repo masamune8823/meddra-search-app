@@ -165,8 +165,8 @@ if st.button("検索"):
 
 
 
-            # ✅ STEP 6: MedDRA階層付加
-            with st.spinner("階層情報を付加中..."):
+        # ✅ STEP 6: MedDRA階層付加
+        with st.spinner("階層情報を付加中..."):
 
                 # STEP 6.1: term列の準備（term_mapped → term にリネーム or fallback で空列追加）
                 if "term_mapped" in reranked.columns:
@@ -229,28 +229,28 @@ if st.button("検索"):
                     st.write(list(unmatched_terms)[:10])
 
                 
-            # ✅ STEP 7: SOCフィルタ
-            if use_soc_filter:
-                try:
-                    soc_prediction = predict_soc_category(query)
-                    if "SOC_Japanese" in final_results.columns:
-                        final_results = final_results[
-                            final_results["SOC_Japanese"].fillna("").astype(str).str.contains(soc_prediction)
-                        ]
-                        st.write(f"🔍 フィルタ前: {len(df_for_merge)} 件 → フィルタ後: {len(final_results)} 件")
-                    else:
-                        st.warning("⚠️ final_results に 'SOC_Japanese' 列が存在しません。フィルタをスキップします。")
-                except Exception as e:
-                    st.warning(f"フィルタ処理でエラーが発生しました: {e}")
+        # ✅ STEP 7: SOCフィルタ
+        if use_soc_filter:
+            try:
+                soc_prediction = predict_soc_category(query)
+                if "SOC_Japanese" in final_results.columns:
+                    final_results = final_results[
+                        final_results["SOC_Japanese"].fillna("").astype(str).str.contains(soc_prediction)
+                    ]
+                    st.write(f"🔍 フィルタ前: {len(df_for_merge)} 件 → フィルタ後: {len(final_results)} 件")
+                else:
+                    st.warning("⚠️ final_results に 'SOC_Japanese' 列が存在しません。フィルタをスキップします。")
+            except Exception as e:
+                st.warning(f"フィルタ処理でエラーが発生しました: {e}")
 
                 st.success("検索完了")
 
-            # STEP 8: 表示対象カラム（存在チェック付き）
-            display_cols = [
-                "term", "score",
-                "PT_Japanese", "HLT_Japanese", "HLGT_Japanese", "SOC_Japanese"
-            ]
-            available_cols = [col for col in display_cols if col in final_results.columns]
+        # STEP 8: 表示対象カラム（存在チェック付き）
+        display_cols = [
+            "term", "score",
+            "PT_Japanese", "HLT_Japanese", "HLGT_Japanese", "SOC_Japanese"
+        ]
+        available_cols = [col for col in display_cols if col in final_results.columns]
 
             # STEP 8.1: 日本語に変換して表示
             st.dataframe(

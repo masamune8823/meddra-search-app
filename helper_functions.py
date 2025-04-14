@@ -120,8 +120,8 @@ def rerank_results_batch(query, candidates, score_cache=None):
             new_terms.append(term)
     # ✅ スコア対象の語数と中身をStreamlitで表示（デバッグ用）
     import streamlit as st
-    st.write("🧪 スコア未評価語数:", len(new_terms), "件")
-    st.write("🧪 未評価語リスト:", new_terms)
+    # st.write("🧪 スコア未評価語数:", len(new_terms), "件")
+    # st.write("🧪 未評価語リスト:", new_terms)
     
     if new_terms:
         # 🔧 プロンプト組み立て（1メッセージに全term）
@@ -149,8 +149,8 @@ def rerank_results_batch(query, candidates, score_cache=None):
 
             # ✅ Streamlitログ表示（デバッグ用）
             import streamlit as st
-            st.subheader("🧾 GPTレスポンス内容（一括形式）")
-            st.code(content)
+            # st.subheader("🧾 GPTレスポンス内容（一括形式）")
+           #  st.code(content)
 
             # 数値抽出（形式：1. 7）
             for line in content.strip().split("\n"):

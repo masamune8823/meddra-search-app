@@ -145,6 +145,7 @@ if st.button("検索"):
             st.warning(f"LLT→PT変換処理でエラーが発生しました: {e}")
             reranked["term_mapped"] = reranked["term"]  # fallback を必ず作成
             
+            final_results = reranked.copy()  # ✅ 追加：以後の処理で NameError 回避
             
             # ✅ デバッグ：変換後のユニーク語一覧（抜粋）
             mapped_terms = reranked["term_mapped"].unique().tolist()

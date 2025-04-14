@@ -88,7 +88,8 @@ if st.sidebar.button("🗑️ 拡張語キャッシュを削除"):
 
 # ---------------- ユーザー入力 ---------------- #
 query = st.text_input("検索語を入力してください（例：皮膚がかゆい）", value="ズキズキ")
-use_soc_filter = st.checkbox("GPTによるSOC予測でフィルタリング（推奨）", value=True)
+# use_soc_filter = st.checkbox("GPTによるSOC予測でフィルタリング（推奨）", value=True)
+# ✅ 2025-04-14: GPTによるSOCフィルタは廃止
 
 # ---------------- 検索処理 ---------------- #
 if st.button("検索"):

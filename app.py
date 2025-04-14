@@ -220,8 +220,8 @@ if st.button("検索"):
                 base_terms = set(df_for_merge["term"]) if "term" in df_for_merge.columns else set()
                 hier_terms = set(final_results["PT_Japanese"].dropna()) if "PT_Japanese" in final_results.columns else set()
 
-                unmatched_terms = base_terms - hier_terms
-                if unmatched_terms:
+                # unmatched_terms = base_terms - hier_terms
+                # if unmatched_terms:
                     # st.warning("🧯 階層マスタに一致しなかった用語（PT_Japanese）:")
                     # st.write(list(unmatched_terms)[:10])
 

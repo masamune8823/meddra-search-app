@@ -244,9 +244,7 @@ if st.button("検索"):
             
                         # 🔍 フィルタ適用前後の件数表示
                         st.write(f"🔍 フィルタ前: {len(final_results)} 件")
-                        final_results = final_results[
-                            final_results["SOC_Japanese"].fillna("").astype(str).str.contains(soc_prediction)
-                        ]
+                        final_results = final_results[soc_match]
                         st.write(f"🔍 フィルタ前: {len(df_for_merge)} 件 → フィルタ後: {len(final_results)} 件")
                     else:
                         st.warning("⚠️ final_results に 'SOC_Japanese' 列が存在しません。フィルタをスキップします。")

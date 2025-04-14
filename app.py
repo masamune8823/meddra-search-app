@@ -140,8 +140,8 @@ if st.button("検索"):
             # ✅ デバッグ：PT_Japanese にマッチしなかった term_mapped のチェック
             pt_set = set(term_master_df["PT_Japanese"].dropna())
             unmatched_pt = set(reranked["term_mapped"]) - pt_set
-            st.warning("🧯 PT_Japanese に存在しない term_mapped（上位10件）:")
-            st.write(list(unmatched_pt)[:10])
+            # st.warning("🧯 PT_Japanese に存在しない term_mapped（上位10件）:")
+            # st.write(list(unmatched_pt)[:10])
 
         except Exception as e:
             st.warning(f"LLT→PT変換処理でエラーが発生しました: {e}")
@@ -151,14 +151,14 @@ if st.button("検索"):
             final_results = reranked.copy()
             
             # ✅ デバッグ：変換後のユニーク語一覧（抜粋）
-            mapped_terms = reranked["term_mapped"].unique().tolist()
-            st.write("📌 term_mapped（変換後）抜粋:", mapped_terms[:10])
+            # mapped_terms = reranked["term_mapped"].unique().tolist()
+            # st.write("📌 term_mapped（変換後）抜粋:", mapped_terms[:10])
 
             # ✅ デバッグ：PT_Japanese にマッチしなかった term_mapped のチェック
             pt_set = set(term_master_df["PT_Japanese"].dropna())
             unmatched_pt = set(reranked["term_mapped"]) - pt_set
-            st.warning("🧯 PT_Japanese に存在しない term_mapped（上位10件）:")
-            st.write(list(unmatched_pt)[:10])
+            # st.warning("🧯 PT_Japanese に存在しない term_mapped（上位10件）:")
+            # st.write(list(unmatched_pt)[:10])
 
 
 
@@ -222,8 +222,8 @@ if st.button("検索"):
 
                 unmatched_terms = base_terms - hier_terms
                 if unmatched_terms:
-                    st.warning("🧯 階層マスタに一致しなかった用語（PT_Japanese）:")
-                    st.write(list(unmatched_terms)[:10])
+                    # st.warning("🧯 階層マスタに一致しなかった用語（PT_Japanese）:")
+                    # st.write(list(unmatched_terms)[:10])
 
                 
             # ✅ STEP 7: SOCフィルタは削除

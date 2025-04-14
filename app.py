@@ -92,11 +92,10 @@ use_soc_filter = st.checkbox("GPTによるSOC予測でフィルタリング（�
 
 # ---------------- 検索処理 ---------------- #
 if st.button("検索"):
-    final_results = None  # ✅ STEP全体でスコープを保証する初期化
-    
     if not query.strip():
         st.warning("検索語を入力してください。")
     else:
+        final_results = None
         with st.spinner("キーワードを解析中..."):
             # ✅ STEP 1: クエリ拡張（例：「ズキズキ」→ "headache", "migraine", ...）
             predicted_keywords = expand_query_gpt(query, query_cache)
@@ -147,7 +146,8 @@ if st.button("検索"):
             st.warning(f"LLT→PT変換処理でエラーが発生しました: {e}")
             reranked["term_mapped"] = reranked["term"]  # fallback を必ず作成
             
-            final_results = reranked.copy()  # ✅ 追加：以後の処理で NameError 回避
+        if final_results is None:
+            final_results = reranked.copy()
             
             # ✅ デバッグ：変換後のユニーク語一覧（抜粋）
             mapped_terms = reranked["term_mapped"].unique().tolist()

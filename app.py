@@ -246,6 +246,10 @@ if st.button("検索"):
                 st.error("❌ final_results が DataFrame ではありません。途中の処理で失敗している可能性があります。")
                 st.stop()
                 
+            # ✅ デバッグ出力（オプション）
+            st.write("🔍 final_results の型:", type(final_results))
+            st.write("🔍 final_results の先頭5行:", final_results.head())       
+                
             # STEP 8: 表示対象カラム（存在チェック付き）
             display_cols = [
                 "term", "score",

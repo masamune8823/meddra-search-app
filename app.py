@@ -205,17 +205,17 @@ if st.button("検索"):
                     if final_results.columns.duplicated().any():
                         final_results = final_results.loc[:, ~final_results.columns.duplicated()]
 
-                    st.write("🧩 final_results の列一覧（直後）:", final_results.columns.tolist())
+                    # st.write("🧩 final_results の列一覧（直後）:", final_results.columns.tolist())
                 except Exception as e:
                     st.error(f"❌ 階層マスタとのマージでエラー: {e}")
                     final_results = reranked.copy()
 
 
                 # ✅ STEP 6.4: マージ後の確認と未一致チェック
-                st.write("🧩 final_results の列一覧（STEP 6.4）:", final_results.columns.tolist())
-                st.write("🔍 マージ対象語数:", len(df_for_merge))
-                st.write("🔍 階層付与後件数:", len(final_results))
-                st.write("📂 term_master_df の列一覧:", term_master_df.columns.tolist())
+                # st.write("🧩 final_results の列一覧（STEP 6.4）:", final_results.columns.tolist())
+                # st.write("🔍 マージ対象語数:", len(df_for_merge))
+                # st.write("🔍 階層付与後件数:", len(final_results))
+                # st.write("📂 term_master_df の列一覧:", term_master_df.columns.tolist())
                 
                 base_terms = set(df_for_merge["term"]) if "term" in df_for_merge.columns else set()
                 hier_terms = set(final_results["PT_Japanese"].dropna()) if "PT_Japanese" in final_results.columns else set()

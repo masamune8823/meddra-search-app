@@ -128,20 +128,9 @@ if st.button("検索"):
             
         # ✅ STEP 5.5: LLT → PT の補完処理（term → PT_Japanese に正規化）
         try:
-            # ✅ ファイルパスを変数で定義（1回だけ）
-            llt_path = "data/1_low_level_term_j.csv"
-
-            # ✅ UTF-8 で読み込む（chardet診断済）
-            llt_df = pd.read_csv(llt_path, encoding="utf-8", header=0)
-
-            if not os.path.exists(llt_path):
-                raise FileNotFoundError(f"{llt_path} が見つかりません。")
-
-            llt_df = pd.read_csv(llt_path)
-            llt_to_pt = dict(zip(llt_df["LLT_Japanese"], llt_df["PT_Japanese"]))
-            reranked["term_mapped"] = reranked["term"].map(llt_to_pt).fillna(reranked["term"])
-            st.write("🧭 term → PT変換後のユニーク語数:", reranked["term_mapped"].nunique())
-
+            # ✅ synonym_df により term はすでに PT 表記になっている前提でコピー
+            reranked["term_mapped"] = reranked["term"]  # synonym_df による事前補正をそのまま採用
+    
             # ✅ デバッグ：変換後のユニーク語一覧（抜粋）
             mapped_terms = reranked["term_mapped"].unique().tolist()
             st.write("📌 term_mapped（変換後）抜粋:", mapped_terms[:10])

@@ -128,8 +128,12 @@ if st.button("検索"):
             
         # ✅ STEP 5.5: LLT → PT の補完処理（term → PT_Japanese に正規化）
         try:
-            llt_df = pd.read_csv("data/1_low_level_term_j.csv", encoding="utf-8")
-            
+            # ✅ ファイルパスを変数で定義（1回だけ）
+            llt_path = "data/1_low_level_term_j.csv"
+
+            # ✅ UTF-8 で読み込む（chardet診断済）
+            llt_df = pd.read_csv(llt_path, encoding="utf-8")
+
             if not os.path.exists(llt_path):
                 raise FileNotFoundError(f"{llt_path} が見つかりません。")
 

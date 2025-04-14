@@ -150,7 +150,7 @@ def rerank_results_batch(query, candidates, score_cache=None):
             # ✅ Streamlitログ表示（デバッグ用）
             import streamlit as st
             # st.subheader("🧾 GPTレスポンス内容（一括形式）")
-           #  st.code(content)
+            #  st.code(content)
 
             # 数値抽出（形式：1. 7）
             for line in content.strip().split("\n"):

@@ -241,6 +241,10 @@ if st.button("検索"):
 
                 st.success("検索完了")
 
+            # STEP 8.0 の直前に final_results の型チェックを追加
+            if not isinstance(final_results, pd.DataFrame):
+                st.error("❌ final_results が DataFrame ではありません。途中の処理で失敗している可能性があります。")
+                st.stop()
                 
             # STEP 8: 表示対象カラム（存在チェック付き）
             display_cols = [

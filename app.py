@@ -132,7 +132,7 @@ if st.button("検索"):
             llt_path = "data/1_low_level_term_j.csv"
 
             # ✅ UTF-8 で読み込む（chardet診断済）
-            llt_df = pd.read_csv(llt_path, encoding="utf-8")
+            llt_df = pd.read_csv(llt_path, encoding="utf-8", header=0)
 
             if not os.path.exists(llt_path):
                 raise FileNotFoundError(f"{llt_path} が見つかりません。")

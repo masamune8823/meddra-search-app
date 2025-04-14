@@ -92,6 +92,8 @@ use_soc_filter = st.checkbox("GPTによるSOC予測でフィルタリング（�
 
 # ---------------- 検索処理 ---------------- #
 if st.button("検索"):
+    final_results = None  # ✅ STEP全体でスコープを保証する初期化
+    
     if not query.strip():
         st.warning("検索語を入力してください。")
     else:
@@ -239,10 +241,6 @@ if st.button("検索"):
 
                 st.success("検索完了")
 
-            # STEP 8.0 の直前で確認（ガード）
-            if 'final_results' not in locals():
-                st.error("❌ final_results が定義されていません。階層付加時にエラーが発生した可能性があります。")
-                st.stop()
                 
             # STEP 8: 表示対象カラム（存在チェック付き）
             display_cols = [

@@ -176,17 +176,17 @@ if st.button("検索"):
                     df_for_merge["term"] = ""
 
                 # STEP 6.2: デバッグ出力
-                # try:
-                    # st.write("🧪 df_for_merge の型:", type(df_for_merge))
-                    # st.write("🧪 df_for_merge のカラム:", df_for_merge.columns.tolist() if isinstance(df_for_merge, pd.DataFrame) else "（DataFrameでない）")
+                try:
+                    st.write("🧪 df_for_merge の型:", type(df_for_merge))
+                    st.write("🧪 df_for_merge のカラム:", df_for_merge.columns.tolist() if isinstance(df_for_merge, pd.DataFrame) else "（DataFrameでない）")
 
-                #    if isinstance(df_for_merge, pd.DataFrame) and "term" in df_for_merge.columns:
-                #        preview = df_for_merge["term"].dropna().astype(str).unique().tolist()
-                #        st.write("🧭 term列（階層付加用）のユニーク値（抜粋）:", preview[:10])
-                #    else:
-                #        st.warning("⚠️ 'term' 列が df_for_merge に存在しない、または df_for_merge が DataFrame でない可能性あり。")
-                # except Exception as e:
-                #    st.warning(f"⚠️ term列のプレビュー表示中にエラー: {e}")
+                    if isinstance(df_for_merge, pd.DataFrame) and "term" in df_for_merge.columns:
+                        preview = df_for_merge["term"].dropna().astype(str).unique().tolist()
+                        st.write("🧭 term列（階層付加用）のユニーク値（抜粋）:", preview[:10])
+                    else:
+                        st.warning("⚠️ 'term' 列が df_for_merge に存在しない、または df_for_merge が DataFrame でない可能性あり。")
+                except Exception as e:
+                    st.warning(f"⚠️ term列のプレビュー表示中にエラー: {e}")
 
                 # STEP 6.3: 階層情報をマージ（term_mapped → PT_Japanese）
                 try:

@@ -236,8 +236,8 @@ if st.button("検索"):
                 st.stop()
                 
             # ✅ デバッグ出力（オプション）
-            st.write("🔍 final_results の型:", type(final_results))
-            st.write("🔍 final_results の先頭5行:", final_results.head())       
+            # st.write("🔍 final_results の型:", type(final_results))
+            # st.write("🔍 final_results の先頭5行:", final_results.head())       
                 
             # STEP 8: 表示対象カラム（存在チェック付き）
             display_cols = [

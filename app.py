@@ -229,8 +229,6 @@ if st.button("検索"):
             # 🔁 検索完了の表示だけを残す
             st.success("検索完了")
 
-                st.success("検索完了")
-
             # STEP 8.0: 型と中身チェックをまとめて行う
             if not isinstance(final_results, pd.DataFrame) or final_results.empty:
                 st.error("❌ final_results が空、またはDataFrameではありません。検索結果が存在しない可能性があります。")

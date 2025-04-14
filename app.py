@@ -239,6 +239,11 @@ if st.button("検索"):
 
                 st.success("検索完了")
 
+            # STEP 8.0 の直前で確認（ガード）
+            if 'final_results' not in locals():
+                st.error("❌ final_results が定義されていません。階層付加時にエラーが発生した可能性があります。")
+                st.stop()
+                
             # STEP 8: 表示対象カラム（存在チェック付き）
             display_cols = [
                 "term", "score",

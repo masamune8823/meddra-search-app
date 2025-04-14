@@ -225,31 +225,9 @@ if st.button("検索"):
                     st.write(list(unmatched_terms)[:10])
 
                 
-            # ✅ STEP 7: SOCフィルタ
-            if use_soc_filter:
-                try:
-                    soc_prediction = predict_soc_category(query)
-                    st.write("🧠 GPTによるSOC予測カテゴリ:", soc_prediction)
-                    
-                    if "SOC_Japanese" in final_results.columns:
-                    
-                        # 🔍 事前確認: 列内のユニークな値を確認
-                        st.write("🧪 final_results 内の SOC_Japanese 値一覧（ユニーク）:")
-                        st.write(final_results["SOC_Japanese"].dropna().unique().tolist())
-                    
-                        # 🔍 一致判定のブール配列を確認
-                        soc_match = final_results["SOC_Japanese"].fillna("").astype(str).str.contains(soc_prediction)
-                        st.write("📊 フィルタ一致フラグ（先頭10件）:")
-                        st.write(soc_match.head(10).tolist())
-            
-                        # 🔍 フィルタ適用前後の件数表示
-                        st.write(f"🔍 フィルタ前: {len(final_results)} 件")
-                        final_results = final_results[soc_match]
-                        st.write(f"🔍 フィルタ前: {len(df_for_merge)} 件 → フィルタ後: {len(final_results)} 件")
-                    else:
-                        st.warning("⚠️ final_results に 'SOC_Japanese' 列が存在しません。フィルタをスキップします。")
-                except Exception as e:
-                    st.warning(f"フィルタ処理でエラーが発生しました: {e}")
+            # ✅ STEP 7: SOCフィルタは削除
+            # 🔁 検索完了の表示だけを残す
+            st.success("検索完了")
 
                 st.success("検索完了")
 

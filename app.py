@@ -329,3 +329,17 @@ if st.button("検索"):
                     ])
         except Exception as e:
             st.warning(f"⚠️ ログ保存に失敗しました: {e}")
+            
+        # ✅ STEP 10: 検索履歴のダウンロードボタン（ログ用）
+        log_path = "logs/search_history.csv"
+        if os.path.exists(log_path):
+            with open(log_path, "r", encoding="utf-8-sig") as f:
+                log_data = f.read()
+            st.download_button(
+                label="📥 検索履歴ログをダウンロード",
+                data=log_data,
+                file_name="search_history.csv",
+                mime="text/csv"
+            )
+        else:
+            st.info("ℹ️ 検索履歴ログはまだ作成されていません。")

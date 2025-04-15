@@ -262,7 +262,7 @@ if st.button("検索"):
                 
             # STEP 8: 表示対象カラム（存在チェック付き）
             display_cols = [
-                "term", "score",
+                "term", "matched_from","score",
                 "PT_Japanese", "HLT_Japanese", "HLGT_Japanese", "SOC_Japanese"
             ]
             available_cols = [col for col in display_cols if col in final_results.columns]

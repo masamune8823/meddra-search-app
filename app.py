@@ -177,8 +177,8 @@ if st.button("検索"):
 
                 # STEP 6.2: デバッグ出力
                 try:
-                    st.write("🧪 df_for_merge の型:", type(df_for_merge))
-                    st.write("🧪 df_for_merge のカラム:", df_for_merge.columns.tolist() if isinstance(df_for_merge, pd.DataFrame) else "（DataFrameでない）")
+                    # st.write("🧪 df_for_merge の型:", type(df_for_merge))
+                    # st.write("🧪 df_for_merge のカラム:", df_for_merge.columns.tolist() if isinstance(df_for_merge, pd.DataFrame) else "（DataFrameでない）")
 
                     if isinstance(df_for_merge, pd.DataFrame) and "term" in df_for_merge.columns:
                         preview = df_for_merge["term"].dropna().astype(str).unique().tolist()

@@ -334,6 +334,16 @@ if st.button("検索"):
         log_path = "logs/search_history.csv"
         
         
+        if st.button("🔍 Pruritus 直接検索テスト"):
+            keyword = "Pruritus"
+            st.write(f"キーワード: {keyword}")
+            result = search_meddra(keyword, faiss_index, meddra_terms, synonym_df, top_k=30)
+            if result.empty:
+                st.warning("🔍 FAISS検索で Pruritus はヒットしませんでした。")
+            else:
+                st.write("✅ 検索結果:")
+                st.dataframe(result)
+        
         # ✅ STEP 11: Pruritusを含む行だけ抽出して表示（デバッグ目的）
         with st.expander("🐛 Pruritus 含む結果（デバッグ表示）"):
             pruritus_df = final_results[

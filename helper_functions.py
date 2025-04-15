@@ -234,8 +234,8 @@ def expand_query_gpt(query, query_cache=None):
 
         # ✅ Streamlitログでレスポンス確認
         import streamlit as st
-        st.subheader("📥 GPT 生レスポンス内容（拡張語）")
-        st.code(response_text)
+        # st.subheader("📥 GPT 生レスポンス内容（拡張語）")
+        # st.code(response_text)
 
         # 🔧 整形処理（番号 or カンマ対応）
         raw_lines = response_text.strip().split("\n")

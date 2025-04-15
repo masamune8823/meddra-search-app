@@ -46,4 +46,4 @@ local_backup/
 Thumbs.db
 
 !data/synonym_df.pkl
-!.streamlit/config.toml
+# !.streamlit/config.toml

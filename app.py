@@ -336,12 +336,16 @@ if st.button("検索"):
         
         # ✅ STEP 11: Pruritusを含む行だけ抽出して表示（デバッグ目的）
         with st.expander("🐛 Pruritus 含む結果（デバッグ表示）"):
-            pruritus_df = final_results[final_results["term"].str.contains("Pruritus", case=False, na=False)]
+            pruritus_df = final_results[
+                final_results["term"].str.contains("Pruritus", case=False, na=False) |
+                final_results.get("PT_English", pd.Series("", index=final_results.index)).str.contains("Pruritus", case=False, na=False)
+            ]
             if pruritus_df.empty:
                 st.info("🧐 'Pruritus' を含む結果はありませんでした。")
             else:
                 st.write(f"🎯 Pruritus を含む結果（{len(pruritus_df)} 件）:")
-                st.dataframe(pruritus_df[["term", "score", "matched_from"]])
+                st.dataframe(pruritus_df[["term", "PT_English", "score", "matched_from"]])
+
         
         
         if os.path.exists(log_path):

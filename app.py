@@ -127,6 +127,7 @@ if st.button("検索"):
             score_cache = {}  # ✅ 追加（APIコールを繰り返さないためのキャッシュ）
             reranked = rerank_results_batch(query, all_results, score_cache)
             reranked["score"] = rescale_scores(reranked["Relevance"].tolist())
+            reranked["score"] = reranked["score"].map(lambda x: round(x, 1))  # 小数1桁
             
         # ✅ STEP 5.5: LLT → PT の補完処理（term → PT_Japanese に正規化）
         try:
@@ -160,7 +161,14 @@ if st.button("検索"):
             # st.warning("🧯 PT_Japanese に存在しない term_mapped（上位10件）:")
             # st.write(list(unmatched_pt)[:10])
 
+            # STEP 5.6: matched_from 列の追加
+            # synonym_df を使って補正された term があるか確認
+            reranked["matched_from"] = "GPT拡張語"  # デフォルト値
 
+            # synonym_df にある variant（=元の類義語）を元に補正された語が含まれるか判定
+            if "variant" in synonym_df.columns and "PT_Japanese" in synonym_df.columns:
+                corrected_terms = synonym_df["PT_Japanese"].unique().tolist()
+                reranked.loc[reranked["term"].isin(corrected_terms), "matched_from"] = "辞書補正"
 
             # ✅ STEP 6: MedDRA階層付加
             with st.spinner("階層情報を付加中..."):
@@ -235,6 +243,14 @@ if st.button("検索"):
             # 🔁 検索完了の表示だけを残す
             st.success("検索完了")
 
+
+            display_cols = [
+                "term", "matched_from", "score",
+                "PT_Japanese", "HLT_Japanese", "HLGT_Japanese", "SOC_Japanese"
+            ]
+
+
+
             # STEP 8.0: 型と中身チェックをまとめて行う
             if not isinstance(final_results, pd.DataFrame) or final_results.empty:
                 st.error("❌ final_results が空、またはDataFrameではありません。検索結果が存在しない可能性があります。")
@@ -255,6 +271,7 @@ if st.button("検索"):
             st.dataframe(
                 final_results[available_cols].rename(columns={
                     "term": "拡張語",
+                    "matched_from": "由来",
                     "score": "確からしさ (%)",
                     "PT_Japanese": "PT（日本語）",
                     "HLT_Japanese": "HLT（日本語）",

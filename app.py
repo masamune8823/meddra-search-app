@@ -304,3 +304,25 @@ if st.button("検索"):
             st.write("💡 入力語に意味的に近い用語候補:")
             for i, term in enumerate(similar_terms, 1):
                 st.markdown(f"{i}. {term}")
+
+        import csv
+        from datetime import datetime
+
+        # STEP 9: 検索履歴を保存（ログとして）
+        log_path = "logs/search_history.csv"
+        os.makedirs("logs", exist_ok=True)
+
+        try:
+            with open(log_path, mode="a", newline="", encoding="utf-8-sig") as f:
+                writer = csv.writer(f)
+                for _, row in final_results.iterrows():
+                    writer.writerow([
+                        datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        query,
+                        predicted_keywords,
+                        row.get("term", ""),
+                        row.get("matched_from", ""),
+                        row.get("score", "")
+                    ])
+        except Exception as e:
+            st.warning(f"⚠️ ログ保存に失敗しました: {e}")

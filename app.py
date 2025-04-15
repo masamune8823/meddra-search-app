@@ -254,7 +254,7 @@ if st.button("検索"):
             # STEP 8.1: 日本語に変換して表示
             st.dataframe(
                 final_results[available_cols].rename(columns={
-                    "term": "用語（再スコア対象語）",
+                    "term": "拡張語",
                     "score": "確からしさ (%)",
                     "PT_Japanese": "PT（日本語）",
                     "HLT_Japanese": "HLT（日本語）",

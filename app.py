@@ -204,8 +204,7 @@ if st.button("検索"):
 
                     # ✅ term_master_dfに "term" 列があれば削除（念のため）
                     term_master_clean = term_master_df.drop(columns=["term"], errors="ignore")
-                   
-                    st.write("📌 term_master_df の列:", term_master_df.columns.tolist())
+                
                    
                     final_results = pd.merge(
                         reranked,
@@ -334,21 +333,6 @@ if st.button("検索"):
             
         # ✅ STEP 10: 検索履歴のダウンロードボタン（ログ用）
         log_path = "logs/search_history.csv"
-
-        
-        # ✅ STEP 11: Pruritusを含む行だけ抽出して表示（デバッグ目的）
-        with st.expander("🐛 Pruritus 含む結果（デバッグ表示）"):
-            pruritus_df = final_results[
-                final_results["term"].str.contains("Pruritus", case=False, na=False) |
-                final_results.get("PT_English", pd.Series("", index=final_results.index)).str.contains("Pruritus", case=False, na=False)
-            ]
-            if pruritus_df.empty:
-                st.info("🧐 'Pruritus' を含む結果はありませんでした。")
-            else:
-                st.write(f"🎯 Pruritus を含む結果（{len(pruritus_df)} 件）:")
-                st.dataframe(pruritus_df[["term", "PT_English", "score", "matched_from"]])
-
-        
         
         if os.path.exists(log_path):
             with open(log_path, "r", encoding="utf-8-sig") as f:

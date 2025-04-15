@@ -287,9 +287,9 @@ if st.button("検索"):
         st.download_button("📆 結果をCSVでダウンロード", data=csv, file_name="meddra_results.csv", mime="text/csv")
         
         # 🔍 テスト用ボタン
-        if st.button("🔍 テスト実行（ズキズキ）"):
-            from test_meddra_full_pipeline import run_test_pipeline
-            run_test_pipeline()
+        # if st.button("🔍 テスト実行（ズキズキ）"):
+        #     from test_meddra_full_pipeline import run_test_pipeline
+        #     run_test_pipeline()
 
         # ✅ キャッシュの保存（検索完了後）
         with open("score_cache.pkl", "wb") as f:

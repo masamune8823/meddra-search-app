@@ -105,14 +105,14 @@ if st.button("検索"):
             soc_prediction = predict_soc_category(query)
 
             # ✅ STEP 3: キャッシュ使用の表示
-            if query in query_cache:
-                st.info("✅ クエリ拡張キャッシュを使用しました。")
-            else:
-                st.info("🆕 新しい拡張語を生成しました（キャッシュ追加済）。")
+            # if query in query_cache:
+            #     st.info("✅ クエリ拡張キャッシュを使用しました。")
+            # else:
+            #     st.info("🆕 新しい拡張語を生成しました（キャッシュ追加済）。")
 
         # ✅ STEP 3.5: デバッグ表示（拡張語の確認）
-        st.subheader("🧠 GPT予測キーワード（整形後）")
-        st.write(predicted_keywords)
+        # st.subheader("🧠 GPT予測キーワード（整形後）")
+        # st.write(predicted_keywords)
 
         # ✅ STEP 4: FAISS検索
         with st.spinner("FAISSで用語検索中..."):
@@ -135,8 +135,8 @@ if st.button("検索"):
             reranked["term_mapped"] = reranked["term"]  # synonym_df による事前補正をそのまま採用
     
             # ✅ デバッグ：変換後のユニーク語一覧（抜粋）
-            mapped_terms = reranked["term_mapped"].unique().tolist()
-            st.write("📌 term_mapped（変換後）抜粋:", mapped_terms[:10])
+            # mapped_terms = reranked["term_mapped"].unique().tolist()
+            # st.write("📌 term_mapped（変換後）抜粋:", mapped_terms[:10])
 
             # ✅ デバッグ：PT_Japanese にマッチしなかった term_mapped のチェック
             pt_set = set(term_master_df["PT_Japanese"].dropna())
@@ -314,8 +314,8 @@ if st.button("検索"):
         os.makedirs("logs", exist_ok=True)
 
         try:
-            st.write("📋 ログ保存対象件数:", len(final_results))  # ← 確認用
-            
+            # st.write("📋 ログ保存対象件数:", len(final_results))  # ← 確認用
+            pass  # 表示は一時OFF
             with open(log_path, mode="a", newline="", encoding="utf-8-sig") as f:
                 writer = csv.writer(f)
                 for _, row in final_results.iterrows():

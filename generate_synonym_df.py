@@ -27,3 +27,8 @@ with open(output_path, "wb") as f:
     pickle.dump(synonym_df, f)
 
 print(f"✅ synonym_df.pkl を作成しました: {output_path}")
+
+# ✅ "かゆみ" に関するマッピングが存在するか確認（開発用デバッグ）
+subset = synonym_df[synonym_df["variant"].str.contains("かゆみ", na=False)]
+print("\n🔍 synonym_df 内の 'かゆみ' マッピング確認:")
+print(subset)

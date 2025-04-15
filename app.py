@@ -307,12 +307,15 @@ if st.button("検索"):
 
         import csv
         from datetime import datetime
+        import os
 
         # STEP 9: 検索履歴を保存（ログとして）
         log_path = "logs/search_history.csv"
         os.makedirs("logs", exist_ok=True)
 
         try:
+            st.write("📋 ログ保存対象件数:", len(final_results))  # ← 確認用
+            
             with open(log_path, mode="a", newline="", encoding="utf-8-sig") as f:
                 writer = csv.writer(f)
                 for _, row in final_results.iterrows():

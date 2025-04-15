@@ -31,9 +31,7 @@ from sentence_transformers import SentenceTransformer
 hf_token = os.getenv("HF_TOKEN")
 
 # トークン付きでモデルロード
-from sentence_transformers import SentenceTransformer
-
-model = SentenceTransformer("sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2", use_auth_token=False)
+model = SentenceTransformer("sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2", use_auth_token=hf_token)
 
 # OpenAI APIキー（環境変数から取得）
 openai.api_key = os.getenv("OPENAI_API_KEY")

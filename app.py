@@ -129,6 +129,16 @@ if st.button("検索"):
             reranked["score"] = rescale_scores(reranked["Relevance"].tolist())
             reranked["score"] = reranked["score"].map(lambda x: round(x, 1))  # 小数1桁
 
+        # ✅ デバッグ: reranked に 'Pruritus' が含まれているか確認
+        st.subheader("🐛 デバッグ: reranked 内に 'Pruritus' が存在するか？")
+        debug_pruritus = reranked[reranked["term"].str.lower() == "pruritus".lower()]
+        if not debug_pruritus.empty:
+            st.write("✅ reranked に Pruritus は含まれています:")
+            st.dataframe(debug_pruritus)
+        else:
+            st.warning("❌ reranked に 'Pruritus' は存在しません。FAISS検索でヒットしていない可能性あり。")
+
+
         # ✅ 追加：PT_English を引き継ぐ（termをキーにマージ）
         if "PT_English" not in reranked.columns and "PT_English" in all_results.columns:
             reranked = reranked.merge(
@@ -283,6 +293,7 @@ if st.button("検索"):
                     "term": "拡張語",
                     "matched_from": "由来",
                     "score": "確からしさ (%)",
+                    "PT_English": "PT（英語）",  # ← ✅ 追加
                     "PT_Japanese": "PT（日本語）",
                     "HLT_Japanese": "HLT（日本語）",
                     "HLGT_Japanese": "HLGT（日本語）",

@@ -142,14 +142,17 @@ if st.button("検索"):
             search_results = []
             for kw in predicted_keywords:
                 result = search_meddra(kw, faiss_index, meddra_terms, synonym_df, top_k=20)
+                search_results.append(result)  # ✅ ← これが抜けていた！
 
-            # 🔍 デバッグ: "Pruritus" の検索結果を明示表示
-            if kw.lower() == "pruritus":
-                st.subheader("🐛 DEBUG: search_meddra() による Pruritus の検索結果")
-                if isinstance(result, pd.DataFrame):
-                    st.write(result[["term"]] if "term" in result.columns else result)
-                else:
-                    st.warning("⚠️ 結果が DataFrame ではありません")
+                # 🔍 デバッグ: "Pruritus" の検索結果を明示表示
+                if kw.lower() == "pruritus":
+                    st.subheader("🐛 DEBUG: search_meddra() による Pruritus の検索結果")
+                    if isinstance(result, pd.DataFrame):
+                        st.write(result[["term"]] if "term" in result.columns else result)
+                    else:
+                        st.warning("⚠️ 結果が DataFrame ではありません")
+
+            all_results = pd.concat(search_results).drop_duplicates(subset=["term"]).reset_index(drop=True)
 
             
         # ✅ STEP 5: GPT再スコアリング

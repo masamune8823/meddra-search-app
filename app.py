@@ -176,11 +176,11 @@ if st.button("検索"):
             reranked["term_mapped"] = reranked["term"]  # synonym_df による事前補正をそのまま採用
 
 
-            # ✅ PT_English → PT_Japanese の変換辞書を term_master_df から作成
+            # 英語 → 日本語の変換辞書（term_master_dfベース）
             pt_map_dict = dict(zip(term_master_df["PT_English"], term_master_df["PT_Japanese"]))
 
-            # ✅ term_mapped に英語が含まれている場合 → 日本語に変換
-            reranked["term_mapped"] = reranked["term_mapped"].map(lambda x: pt_map_dict.get(x, x))
+            # 表示用にのみ term_mapped を作成（term列は変更しない）
+            reranked["term_mapped"] = reranked["term"].map(lambda x: pt_map_dict.get(x, x))
     
     
     

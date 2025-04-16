@@ -8,9 +8,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import pickle
-import os
 import faiss
-QUERY_CACHE_PATH = "data/query_expansion_cache.pkl"
 
 from helper_functions import (
     encode_query,

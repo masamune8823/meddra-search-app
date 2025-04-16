@@ -1,18 +1,19 @@
 
 import os
 import sys
-sys.path.append(os.path.dirname(__file__))
-
-
 import streamlit as st
 import pandas as pd
 import numpy as np
 import pickle
 import faiss
 
+# ✅ helper_functions.py を正しくインポートできるようにパスを追加（上に持ってくる）
+sys.path.append(os.path.dirname(__file__))
+
 from helper_functions import (
     encode_query,
     search_meddra,
+    search_meddra_v2, 
     rerank_results_batch,
     add_hierarchy_info,
     rescale_scores,
@@ -82,8 +83,8 @@ if st.sidebar.button("🗑️ スコアキャッシュを削除"):
 
 # ✅ Streamlitサイドバーにクエリ拡張キャッシュ削除ボタンを追加
 if st.sidebar.button("🗑️ 拡張語キャッシュを削除"):
-    if os.path.exists(QUERY_CACHE_PATH):
-        os.remove(QUERY_CACHE_PATH)
+    if os.path.exists("query_expansion_cache.pkl"):
+        os.remove("query_expansion_cache.pkl")
         query_cache = {}
         st.sidebar.success("拡張語キャッシュを削除しました。")
     else:

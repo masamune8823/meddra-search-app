@@ -114,6 +114,16 @@ if st.button("検索"):
         st.subheader("🧠 GPT予測キーワード（整形後）")
         st.write(predicted_keywords)
 
+
+        # ✅ デバッグ: meddra_terms に 'Pruritus' が含まれるか確認
+        st.subheader("🧪 meddra_terms に 'Pruritus' は含まれるか？")
+        pruritus_exists = any("pruritus" in str(term).lower() for term in meddra_terms)
+        if pruritus_exists:
+            st.success("✅ meddra_terms 内に 'Pruritus' が含まれています。")
+        else:
+            st.error("❌ meddra_terms に 'Pruritus' は存在しません。FAISS対象外です。")
+            
+
         # ✅ STEP 4: FAISS検索
         with st.spinner("FAISSで用語検索中..."):
             search_results = []

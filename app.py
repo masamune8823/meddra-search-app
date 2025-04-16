@@ -192,13 +192,17 @@ if st.button("検索"):
             # st.write(list(unmatched_pt)[:10])
 
             # STEP 5.6: matched_from 列の追加
-            # synonym_df を使って補正された term があるか確認
-            reranked["matched_from"] = "GPT拡張語"  # デフォルト値
+            reranked["matched_from"] = "FAISS類似語"  # デフォルト値
 
-            # synonym_df にある variant（=元の類義語）を元に補正された語が含まれるか判定
+            # GPT拡張語に一致するもの
+            reranked.loc[reranked["term"].isin(predicted_keywords), "matched_from"] = "GPT拡張語"
+
+            # synonym_df から補正された用語（GPT拡張語以外）
             if "variant" in synonym_df.columns and "PT_Japanese" in synonym_df.columns:
-                corrected_terms = synonym_df["PT_Japanese"].unique().tolist()
-                reranked.loc[reranked["term"].isin(corrected_terms), "matched_from"] = "辞書補正"
+                synonym_terms = synonym_df["PT_Japanese"].unique().tolist()
+                condition = reranked["term"].isin(synonym_terms) & ~reranked["term"].isin(predicted_keywords)
+                reranked.loc[condition, "matched_from"] = "辞書補正"
+
 
             # ✅ STEP 6: MedDRA階層付加
             with st.spinner("階層情報を付加中..."):

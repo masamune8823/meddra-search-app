@@ -144,6 +144,9 @@ if st.button("検索"):
                 result = search_meddra_v2(kw, faiss_index, meddra_terms, synonym_df, top_k_faiss=10)
                 search_results.append(result)  # 🔥 これは絶対必要
 
+            # ✅ 🔽 ここが抜けていた：検索結果を統合して all_results にまとめる
+            all_results = pd.concat(search_results).drop_duplicates(subset=["term"]).reset_index(drop=True)
+
             
         # ✅ STEP 5: GPT再スコアリング
         with st.spinner("再スコアリング中（GPT一括）..."):

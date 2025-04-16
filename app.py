@@ -141,7 +141,7 @@ if st.button("検索"):
         with st.spinner("FAISSで用語検索中..."):
             search_results = []
             for kw in predicted_keywords:
-                result = search_meddra(kw, faiss_index, meddra_terms, synonym_df, top_k=20)
+                result = search_meddra(kw, faiss_index, meddra_terms, synonym_df, top_k=100)
 
                 # ✅ 部分一致による補完
                 matched_rows = synonym_df[synonym_df["variant"].str.lower().str.contains(kw.lower(), na=False)]

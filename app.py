@@ -174,13 +174,23 @@ if st.button("検索"):
         try:
             # ✅ synonym_df により term はすでに PT 表記になっている前提でコピー
             reranked["term_mapped"] = reranked["term"]  # synonym_df による事前補正をそのまま採用
+
+
+        # ✅ PT_English → PT_Japanese の変換辞書を term_master_df から作成
+        pt_map_dict = dict(zip(term_master_df["PT_English"], term_master_df["PT_Japanese"]))
+
+        # ✅ term_mapped に英語が含まれている場合 → 日本語に変換
+        reranked["term_mapped"] = reranked["term_mapped"].map(lambda x: pt_map_dict.get(x, x))
+    
+    
+    
     
             # ✅ デバッグ：変換後のユニーク語一覧（抜粋）
             # mapped_terms = reranked["term_mapped"].unique().tolist()
             # st.write("📌 term_mapped（変換後）抜粋:", mapped_terms[:10])
 
             # ✅ デバッグ：PT_Japanese にマッチしなかった term_mapped のチェック
-            pt_set = set(term_master_df["PT_English"].dropna())
+            pt_set = set(term_master_df["PT_Japanese"].dropna())
             unmatched_pt = set(reranked["term_mapped"]) - pt_set
             # st.warning("🧯 PT_Japanese に存在しない term_mapped（上位10件）:")
             # st.write(list(unmatched_pt)[:10])

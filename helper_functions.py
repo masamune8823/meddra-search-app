@@ -55,10 +55,10 @@ def search_meddra(query, faiss_index, meddra_terms, synonym_df=None, top_k=10):
             was_corrected = True
 
     # ✅ 補正ログの表示
-    # st.write("🧩 シノニム補正ログ:")
-    # st.write(f"・元の入力語: {original_query}")
-    # st.write(f"・補正後の検索語: {query}")
-    # st.write(f"・補正成功: {'✅ はい' if was_corrected else '❌ いいえ'}")
+    st.write("🧩 シノニム補正ログ:")
+    st.write(f"・元の入力語: {original_query}")
+    st.write(f"・補正後の検索語: {query}")
+    st.write(f"・補正成功: {'✅ はい' if was_corrected else '❌ いいえ'}")
 
     # STEP 1: クエリベクトル化
     query_vector = encode_query(query).astype(np.float32)

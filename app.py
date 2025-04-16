@@ -128,6 +128,15 @@ if st.button("検索"):
             reranked = rerank_results_batch(query, all_results, score_cache)
             reranked["score"] = rescale_scores(reranked["Relevance"].tolist())
             reranked["score"] = reranked["score"].map(lambda x: round(x, 1))  # 小数1桁
+
+        # ✅ 追加：PT_English を引き継ぐ（termをキーにマージ）
+        if "PT_English" not in reranked.columns and "PT_English" in all_results.columns:
+            reranked = reranked.merge(
+                all_results[["term", "PT_English"]].drop_duplicates(),
+                on="term",
+                how="left"
+            )
+
             
         # ✅ STEP 5.5: LLT → PT の補完処理（term → PT_Japanese に正規化）
         try:

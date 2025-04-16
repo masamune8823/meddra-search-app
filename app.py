@@ -143,13 +143,13 @@ if st.button("検索"):
             for kw in predicted_keywords:
                 result = search_meddra(kw, faiss_index, meddra_terms, synonym_df, top_k=20)
 
-                # ★新しく追加：term内にkwを含む場合を優先表示
-                if "term" in result.columns:
-                    result["matched_partial"] = result["term"].str.lower().str.contains(kw.lower())
-                    result = result.sort_values(by="matched_partial", ascending=False)
-
-                search_results.append(result)
-            all_results = pd.concat(search_results).drop_duplicates(subset=["term"]).reset_index(drop=True)
+            # 🔍 デバッグ: "Pruritus" の検索結果を明示表示
+            if kw.lower() == "pruritus":
+                st.subheader("🐛 DEBUG: search_meddra() による Pruritus の検索結果")
+                if isinstance(result, pd.DataFrame):
+                    st.write(result[["term"]] if "term" in result.columns else result)
+                else:
+                    st.warning("⚠️ 結果が DataFrame ではありません")
 
             
         # ✅ STEP 5: GPT再スコアリング

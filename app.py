@@ -180,7 +180,7 @@ if st.button("検索"):
             # st.write("📌 term_mapped（変換後）抜粋:", mapped_terms[:10])
 
             # ✅ デバッグ：PT_Japanese にマッチしなかった term_mapped のチェック
-            pt_set = set(term_master_df["PT_Japanese"].dropna())
+            pt_set = set(term_master_df["PT_English"].dropna())
             unmatched_pt = set(reranked["term_mapped"]) - pt_set
             # st.warning("🧯 PT_Japanese に存在しない term_mapped（上位10件）:")
             # st.write(list(unmatched_pt)[:10])

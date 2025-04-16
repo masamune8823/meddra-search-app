@@ -104,10 +104,10 @@ with st.expander("🐛 Step 1: 'Pruritus' をFAISSで直接ベクトル検索し
                 st.write("🔍 類似度スコア:", D[0])
                 st.write("📋 対応するmeddra_terms:")
                 for idx in I[0]:
-                    if 0 <= idx < len(meddra_terms):
+                    if isinstance(idx, (int, np.integer)) and 0 <= idx < len(meddra_terms):
                         st.markdown(f"- {meddra_terms[idx]}")
                     else:
-                        st.markdown(f"- ❌ インデックス範囲外: {idx}")
+                        st.markdown(f"- ⚠️ 無効なインデックス: {idx}")
             except Exception as e:
                 st.error(f"❌ 検索エラー: {e}")
                 

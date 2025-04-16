@@ -29,13 +29,13 @@ st.title("\U0001f50d MedDRA検索アプリ")
 @st.cache_resource
 def load_assets():
     try:
-        faiss_index = faiss.read_index("faiss_index.index")
+        faiss_index = faiss.read_index("data/faiss_index_v2.index")
     except Exception as e:
         st.error(f"FAISSインデックスの読み込みに失敗しました: {e}")
         raise e
 
     try:
-        meddra_terms = np.load("meddra_terms.npy", allow_pickle=True)
+        meddra_terms = np.load("data/meddra_terms_v2.npy", allow_pickle=True)
 
         # ✅ synonym_df.pkl のみ読み込み
         synonym_path = "data/synonym_df.pkl"
@@ -137,28 +137,12 @@ if st.button("検索"):
         st.subheader("🧠 GPT予測キーワード（整形後）")
         st.write(predicted_keywords)
 
-        # ✅ STEP 4: FAISS検索
-        with st.spinner("FAISSで用語検索中..."):
+        # ✅ STEP 4: MedDRA検索（search_meddra_v2 に差し替え）
+        with st.spinner("FAISS＋辞書＋部分一致で検索中..."):
             search_results = []
             for kw in predicted_keywords:
-                result = search_meddra(kw, faiss_index, meddra_terms,synonym_df, top_k=50000)
-
-                # ✅ 部分一致による補完
-                matched_rows = synonym_df[synonym_df["variant"].str.lower().str.contains(kw.lower(), na=False)]
-                if not matched_rows.empty:
-                    result["term"] = matched_rows["PT_Japanease"].values[0]  # 1件目だけ補正
-
+                result = search_meddra_v2(kw, faiss_index, meddra_terms, synonym_df, top_k_faiss=10)
                 search_results.append(result)  # 🔥 これは絶対必要
-
-                # 🔍 デバッグ: "Pruritus" の検索結果を明示表示
-                if kw.lower() == "pruritus":
-                    st.subheader("🐛 DEBUG: search_meddra() による Pruritus の検索結果")
-                    if isinstance(result, pd.DataFrame):
-                        st.write(result[["term"]] if "term" in result.columns else result)
-                    else:
-                        st.warning("⚠️ 結果が DataFrame ではありません")
-
-            all_results = pd.concat(search_results).drop_duplicates(subset=["term"]).reset_index(drop=True)
 
             
         # ✅ STEP 5: GPT再スコアリング
@@ -288,7 +272,6 @@ if st.button("検索"):
                 "term", "matched_from", "score",
                 "PT_Japanese", "HLT_Japanese", "HLGT_Japanese", "SOC_Japanese"
             ]
-
 
 
             # STEP 8.0: 型と中身チェックをまとめて行う

@@ -40,38 +40,52 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 def encode_query(text):
     return model.encode([text])[0]
 
-# 検索処理本体
-def search_meddra(query, faiss_index, meddra_terms, synonym_df=None, top_k=10):
-    import streamlit as st  # すでにインポート済なら削除してOK
+# ✅ 改良版 検索処理（部分一致 + 辞書 + FAISS）v2
+def search_meddra_v2(query, faiss_index, meddra_terms, synonym_df, top_k_faiss=10):
+    """
+    query: 拡張語（英語）または入力語（日本語）
+    faiss_index: ベクトル検索インデックス
+    meddra_terms: FAISS対象の用語リスト（連結形式含む）
+    synonym_df: シノニム辞書（variant/PT_Japanese/PT_Englishなど拡張済）
+    top_k_faiss: FAISSから取得する件数（小さめでOK）
+    """
+    import streamlit as st
 
-    # ✅ STEP 0: シノニム補正（term列に一致 → PT_Japaneseに置換）
-    original_query = query  # 元の語を保存
-    was_corrected = False
-
-    if synonym_df is not None:
-        matched_row = synonym_df[synonym_df["variant"] == query]
-        if not matched_row.empty:
-            query = matched_row["PT_Japanese"].values[0]
-            was_corrected = True
-
-    # ✅ 補正ログの表示
-    st.write("🧩 シノニム補正ログ:")
-    st.write(f"・元の入力語: {original_query}")
-    st.write(f"・補正後の検索語: {query}")
-    st.write(f"・補正成功: {'✅ はい' if was_corrected else '❌ いいえ'}")
-
-    # STEP 1: クエリベクトル化
-    query_vector = encode_query(query).astype(np.float32)
-
-    # STEP 2: 類似検索
-    distances, indices = faiss_index.search(np.array([query_vector]), top_k)
     results = []
-    for i in range(len(indices[0])):
-        idx = indices[0][i]
-        if idx < len(meddra_terms):
-            term = meddra_terms[idx]
-            score = float(distances[0][i])
-            results.append({"term": term, "score": score})
+    matched_pt_set = set()
+
+    # ✅ A. synonym_dfからの辞書一致（variant全列で部分一致）
+    for _, row in synonym_df.iterrows():
+        for col in synonym_df.columns:
+            if col != "PT_Japanese" and isinstance(row[col], str) and query.lower() in row[col].lower():
+                pt = row["PT_Japanese"]
+                if pt not in matched_pt_set:
+                    results.append({"term": pt, "matched_from": "辞書補正"})
+                    matched_pt_set.add(pt)
+
+    # ✅ B. meddra_termsからの部分一致（term列全体に対して）
+    for term in meddra_terms:
+        if isinstance(term, str) and query.lower() in term.lower():
+            pt = term.split("|")[0].strip()  # "そう痒症 | Pruritus" → "そう痒症"
+            if pt not in matched_pt_set:
+                results.append({"term": pt, "matched_from": "部分一致"})
+                matched_pt_set.add(pt)
+
+    # ✅ C. FAISS検索（ベクトル近傍）
+    try:
+        query_vector = encode_query(query).astype(np.float32)
+        distances, indices = faiss_index.search(np.array([query_vector]), top_k_faiss)
+
+        for i in range(len(indices[0])):
+            idx = indices[0][i]
+            if 0 <= idx < len(meddra_terms):
+                term = meddra_terms[idx]
+                pt = term.split("|")[0].strip()
+                if pt not in matched_pt_set:
+                    results.append({"term": pt, "matched_from": "FAISS補完"})
+                    matched_pt_set.add(pt)
+    except Exception as e:
+        st.warning(f"⚠️ FAISS検索エラー: {e}")
 
     return pd.DataFrame(results)
 

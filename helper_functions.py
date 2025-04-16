@@ -70,14 +70,15 @@ def search_meddra_v2(query, faiss_index, meddra_terms, synonym_df, top_k_faiss=1
     for i in range(len(indices[0])):
         idx = indices[0][i]
         if idx < len(meddra_terms):
-            term = meddra_terms[idx]
-            if term not in matched_terms:
-                results.append({
-                    "term": term,
-                    "score": float(distances[0][i]),
-                    "matched_from": matched_from_label or "ベクトル検索"
-                })
-                matched_terms.add(term)
+            term_raw = meddra_terms[idx]
+            # ✅ "English / 日本語" の形式なら日本語だけ使う
+            term = term_raw.split("/")[-1].strip() if "/" in term_raw else term_raw.strip()
+
+            results.append({
+                "term": term,
+                "score": float(distances[0][i]),
+                "matched_from": matched_from_label or " FAISSベクトル検索"
+            })
 
     return pd.DataFrame(results)
 

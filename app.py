@@ -144,19 +144,23 @@ if st.button("検索"):
         # ✅ STEP 4: MedDRA検索（search_meddra_v2 に差し替え）
         with st.spinner("🔍 検索構成: ベクトル検索（意味的近さ）＋正規辞書照合（PT/LLT一致）＋シノニム辞書（表記ゆれ補正）"):
             search_results = []
+
             for kw in predicted_keywords:
                 result = search_meddra_v2(
-                    kw,
-                    faiss_index,
-                    meddra_terms,
-                    synonym_df,
+                    query=kw,
+                    faiss_index=faiss_index,
+                    meddra_terms=meddra_terms,
+                    synonym_df=synonym_df,
                     top_k_faiss=10,
-                    matched_from_label=f"GPT拡張語: {kw}"  # 🆕 各キーワードに由来を記録
+                    matched_from_label=f"GPT拡張語: {kw}"  # 🔍 由来をキーワードごとに記録
                 )
                 search_results.append(result)
 
-            # ✅ 🔽 結果を結合し、termの重複を除去
-            all_results = pd.concat(search_results).drop_duplicates(subset=["term"]).reset_index(drop=True)
+            # ✅ 結果を統合（termの重複を除去）
+            if search_results:
+                all_results = pd.concat(search_results).drop_duplicates(subset=["term"]).reset_index(drop=True)
+            else:
+                all_results = pd.DataFrame(columns=["term", "score", "matched_from"])  # fallback
 
             
         # ✅ STEP 5: GPT再スコアリング

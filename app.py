@@ -119,8 +119,15 @@ if st.button("検索"):
             search_results = []
             for kw in predicted_keywords:
                 result = search_meddra(kw, faiss_index, meddra_terms, synonym_df, top_k=20)
+                result["from_keyword"] = kw  # ✅ 明示的に拡張語を記録
                 search_results.append(result)
-            all_results = pd.concat(search_results).drop_duplicates(subset=["term", "PT_English", "from_keyword"]).reset_index(drop=True)  # ← 追加
+    
+            all_df = pd.concat(search_results)
+
+            # ✅ 存在する列だけを使って重複削除（PT_Englishがまだない可能性に対応）
+            dedup_subset = [col for col in ["term", "PT_English", "from_keyword"] if col in all_df.columns]
+            all_results = all_df.drop_duplicates(subset=dedup_subset).reset_index(drop=True)
+
             
         # ✅ STEP 5: GPT再スコアリング
         with st.spinner("再スコアリング中（GPT一括）..."):

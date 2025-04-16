@@ -12,7 +12,6 @@ sys.path.append(os.path.dirname(__file__))
 
 from helper_functions import (
     encode_query,
-    search_meddra,
     search_meddra_v2, 
     rerank_results_batch,
     add_hierarchy_info,

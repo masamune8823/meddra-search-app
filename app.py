@@ -142,7 +142,13 @@ if st.button("検索"):
             search_results = []
             for kw in predicted_keywords:
                 result = search_meddra(kw, faiss_index, meddra_terms, synonym_df, top_k=20)
-                search_results.append(result)  # ✅ ← これが抜けていた！
+
+                # ✅ 部分一致による補完
+                matched_rows = synonym_df[synonym_df["variant"].str.lower().str.contains(kw.lower(), na=False)]
+                if not matched_rows.empty:
+                    result["term"] = matched_rows["PT_Japanese"].values[0]  # 1件目だけ補正
+
+                search_results.append(result)  # 🔥 これは絶対必要
 
                 # 🔍 デバッグ: "Pruritus" の検索結果を明示表示
                 if kw.lower() == "pruritus":

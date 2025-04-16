@@ -95,29 +95,6 @@ query = st.text_input("検索語を入力してください（例：皮膚がか
 # use_soc_filter = st.checkbox("GPTによるSOC予測でフィルタリング（推奨）", value=True)
 # ✅ 2025-04-14: GPTによるSOCフィルタは廃止
 
-
-
-# =================== 🔎 Step 1: "Pruritus" をFAISSで直接検索できるか確認 =================== #
-with st.expander("🐛 Step 1: 'Pruritus' をFAISSで直接ベクトル検索してみる"):
-    if st.button("🔬 Pruritus FAISS直接検索"):
-        with st.spinner("Pruritus をベクトル化 → FAISSで類似検索中..."):
-            try:
-                query_vec = encode_query("Pruritus")
-                D, I = faiss_index.search(np.array([query_vec]), k=10)
-                st.write("🔍 FAISS検索上位10件のインデックス:", I[0])
-                st.write("🔍 類似度スコア:", D[0])
-                st.write("📋 対応するmeddra_terms:")
-                for idx in I[0]:
-                    if isinstance(idx, (int, np.integer)) and 0 <= idx < len(meddra_terms):
-                        st.markdown(f"- {meddra_terms[idx]}")
-                    else:
-                        st.markdown(f"- ⚠️ 無効なインデックス: {idx}")
-            except Exception as e:
-                st.error(f"❌ 検索エラー: {e}")
-                
-                
-
-
 # ---------------- 検索処理 ---------------- #
 if st.button("検索"):
     if not query.strip():

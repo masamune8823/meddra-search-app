@@ -58,10 +58,23 @@ def load_assets():
 
     return faiss_index, meddra_terms, synonym_df, term_master_df
 
-
-
-
 faiss_index, meddra_terms, synonym_df, term_master_df = load_assets()
+
+
+
+
+
+st.subheader("🔍 meddra_terms のロード確認")
+
+try:
+    st.write("✅ type:", type(meddra_terms))
+    st.write("✅ length:", len(meddra_terms))
+    st.write("✅ content (first 5):", meddra_terms[:5])
+except Exception as e:
+    st.error(f"❌ meddra_terms 表示中にエラー発生: {e}")
+
+
+
 
 # キャッシュ読み込み
 score_cache = load_score_cache("score_cache.pkl")

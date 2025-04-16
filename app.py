@@ -115,13 +115,15 @@ if st.button("検索"):
         st.write(predicted_keywords)
 
 
-        # ✅ デバッグ: meddra_terms に 'Pruritus' が含まれるか確認
-        st.subheader("🧪 meddra_terms に 'Pruritus' は含まれるか？")
-        pruritus_exists = any("pruritus" in str(term).lower() for term in meddra_terms)
-        if pruritus_exists:
-            st.success("✅ meddra_terms 内に 'Pruritus' が含まれています。")
-        else:
-            st.error("❌ meddra_terms に 'Pruritus' は存在しません。FAISS対象外です。")
+        # ✅ デバッグ: meddra_terms の中身を一部表示
+        st.subheader("🧪 meddra_terms の構造確認")
+        try:
+            st.write("🔢 meddra_terms の型:", type(meddra_terms))
+            st.write("🔢 長さ:", len(meddra_terms))
+            st.write("📌 先頭5件:")
+            st.write(meddra_terms[:5])
+        except Exception as e:
+            st.error(f"❌ meddra_terms の表示中にエラー: {e}")
             
 
         # ✅ STEP 4: FAISS検索

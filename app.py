@@ -1,6 +1,7 @@
 
+import os
 import sys
-import ossys.path.append(os.path.dirname(__file__))
+sys.path.append(os.path.dirname(__file__))
 
 
 import streamlit as st

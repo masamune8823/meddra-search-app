@@ -71,8 +71,7 @@ def search_meddra_v2(query, faiss_index, meddra_terms, synonym_df, top_k_faiss=1
         idx = indices[0][i]
         if idx < len(meddra_terms):
             term_raw = meddra_terms[idx]
-            # ✅ "English / 日本語" の形式なら日本語だけ使う
-            term = term_raw.split("/")[-1].strip() if "/" in term_raw else term_raw.strip()
+            term = term_raw.strip()
 
             results.append({
                 "term": term,

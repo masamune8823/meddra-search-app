@@ -120,7 +120,7 @@ if st.button("検索"):
             for kw in predicted_keywords:
                 result = search_meddra(kw, faiss_index, meddra_terms, synonym_df, top_k=20)
                 search_results.append(result)
-            all_results = pd.concat(search_results).drop_duplicates(subset=["term"]).reset_index(drop=True)
+            all_results = pd.concat(search_results).drop_duplicates(subset=["term", "PT_English", "from_keyword"]).reset_index(drop=True)  # ← 追加
             
         # ✅ STEP 5: GPT再スコアリング
         with st.spinner("再スコアリング中（GPT一括）..."):
@@ -246,7 +246,7 @@ if st.button("検索"):
 
 
             display_cols = [
-                "term", "matched_from", "score",
+                "term", "matched_from", "score","PT_English",  # ← 追加
                 "PT_Japanese", "HLT_Japanese", "HLGT_Japanese", "SOC_Japanese"
             ]
 

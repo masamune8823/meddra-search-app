@@ -58,23 +58,10 @@ def load_assets():
 
     return faiss_index, meddra_terms, synonym_df, term_master_df
 
+
+
+
 faiss_index, meddra_terms, synonym_df, term_master_df = load_assets()
-
-
-
-
-
-st.subheader("🔍 meddra_terms のロード確認")
-
-try:
-    st.write("✅ type:", type(meddra_terms))
-    st.write("✅ length:", len(meddra_terms))
-    st.write("✅ content (first 5):", meddra_terms[:5])
-except Exception as e:
-    st.error(f"❌ meddra_terms 表示中にエラー発生: {e}")
-
-
-
 
 # キャッシュ読み込み
 score_cache = load_score_cache("score_cache.pkl")
@@ -104,6 +91,29 @@ query = st.text_input("検索語を入力してください（例：皮膚がか
 # use_soc_filter = st.checkbox("GPTによるSOC予測でフィルタリング（推奨）", value=True)
 # ✅ 2025-04-14: GPTによるSOCフィルタは廃止
 
+
+
+# =================== 🔎 Step 1: "Pruritus" をFAISSで直接検索できるか確認 =================== #
+with st.expander("🐛 Step 1: 'Pruritus' をFAISSで直接ベクトル検索してみる"):
+    if st.button("🔬 Pruritus FAISS直接検索"):
+        with st.spinner("Pruritus をベクトル化 → FAISSで類似検索中..."):
+            try:
+                query_vec = encode_query("Pruritus")
+                D, I = faiss_index.search(np.array([query_vec]), k=10)
+                st.write("🔍 FAISS検索上位10件のインデックス:", I[0])
+                st.write("🔍 類似度スコア:", D[0])
+                st.write("📋 対応するmeddra_terms:")
+                for idx in I[0]:
+                    if 0 <= idx < len(meddra_terms):
+                        st.markdown(f"- {meddra_terms[idx]}")
+                    else:
+                        st.markdown(f"- ❌ インデックス範囲外: {idx}")
+            except Exception as e:
+                st.error(f"❌ 検索エラー: {e}")
+                
+                
+
+
 # ---------------- 検索処理 ---------------- #
 if st.button("検索"):
     if not query.strip():
@@ -127,18 +137,6 @@ if st.button("検索"):
         st.subheader("🧠 GPT予測キーワード（整形後）")
         st.write(predicted_keywords)
 
-
-        # ✅ デバッグ: meddra_terms の中身を一部表示
-        st.subheader("🧪 meddra_terms の構造確認")
-        try:
-            st.write("🔢 meddra_terms の型:", type(meddra_terms))
-            st.write("🔢 長さ:", len(meddra_terms))
-            st.write("📌 先頭5件:")
-            st.write(meddra_terms[:5])
-        except Exception as e:
-            st.error(f"❌ meddra_terms の表示中にエラー: {e}")
-            
-
         # ✅ STEP 4: FAISS検索
         with st.spinner("FAISSで用語検索中..."):
             search_results = []
@@ -153,25 +151,6 @@ if st.button("検索"):
             reranked = rerank_results_batch(query, all_results, score_cache)
             reranked["score"] = rescale_scores(reranked["Relevance"].tolist())
             reranked["score"] = reranked["score"].map(lambda x: round(x, 1))  # 小数1桁
-
-        # ✅ デバッグ: reranked に 'Pruritus' が含まれているか確認
-        st.subheader("🐛 デバッグ: reranked 内に 'Pruritus' が存在するか？")
-        debug_pruritus = reranked[reranked["term"].str.lower() == "pruritus".lower()]
-        if not debug_pruritus.empty:
-            st.write("✅ reranked に Pruritus は含まれています:")
-            st.dataframe(debug_pruritus)
-        else:
-            st.warning("❌ reranked に 'Pruritus' は存在しません。FAISS検索でヒットしていない可能性あり。")
-
-
-        # ✅ 追加：PT_English を引き継ぐ（termをキーにマージ）
-        if "PT_English" not in reranked.columns and "PT_English" in all_results.columns:
-            reranked = reranked.merge(
-                all_results[["term", "PT_English"]].drop_duplicates(),
-                on="term",
-                how="left"
-            )
-
             
         # ✅ STEP 5.5: LLT → PT の補完処理（term → PT_Japanese に正規化）
         try:
@@ -291,7 +270,7 @@ if st.button("検索"):
 
             display_cols = [
                 "term", "matched_from", "score",
-                "PT_Japanese",  "PT_English","HLT_Japanese", "HLGT_Japanese", "SOC_Japanese" # ← 追加
+                "PT_Japanese", "HLT_Japanese", "HLGT_Japanese", "SOC_Japanese"
             ]
 
 
@@ -318,7 +297,6 @@ if st.button("検索"):
                     "term": "拡張語",
                     "matched_from": "由来",
                     "score": "確からしさ (%)",
-                    "PT_English": "PT（英語）",  # ← ✅ 追加
                     "PT_Japanese": "PT（日本語）",
                     "HLT_Japanese": "HLT（日本語）",
                     "HLGT_Japanese": "HLGT（日本語）",

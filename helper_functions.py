@@ -41,7 +41,10 @@ def encode_query(text):
     return model.encode([text])[0]
 
 # ✅ 改良版 検索処理（部分一致 + 辞書 + FAISS）v2
-def search_meddra_v2(query, faiss_index, meddra_terms, synonym_df, top_k_faiss=10, matched_from_label=None):
+def search_meddra_v2(query, faiss_index, meddra_terms, synonym_df, top_k_faiss=10, matched_from_label=None, original_query=None):
+    if original_query is None:
+        original_query = query
+
     import pandas as pd
 
     results = []
@@ -49,18 +52,29 @@ def search_meddra_v2(query, faiss_index, meddra_terms, synonym_df, top_k_faiss=1
 
     # ✅ 1. シノニム辞書（variant → PT_Japanese）
     if synonym_df is not None and "variant" in synonym_df.columns:
-        synonym_hits = synonym_df[synonym_df["variant"] == query]
+        synonym_hits = synonym_df[synonym_df["variant"] == original_query]
         for _, row in synonym_hits.iterrows():
             term = row["PT_Japanese"]
             if term not in matched_terms:
-                results.append({"term": term, "score": 1.0, "matched_from": "シノニム辞書検索"})
+                results.append({
+                    "term": original_query,         # 元の入力語（例："かゆみ"）
+                    "term_mapped": term,            # 補正結果（例："そう痒症"）
+                    "score": 1.0,
+                    "matched_from": "辞書補正"
+                })
                 matched_terms.add(term)
+
 
     # ✅ 2. 正規辞書照合（部分一致）
     for term in meddra_terms:
         if isinstance(term, str) and query.lower() in term.lower():
             if term not in matched_terms:
-                results.append({"term": term, "score": 1.0, "matched_from": "正規辞書照合検索"})
+                results.append({
+                    "term": query,                  # 拡張語（例："Pruritus"）
+                    "term_mapped": term,            # ヒット語（例："そう痒症"）
+                    "score": 1.0,
+                    "matched_from": "正規辞書照合検索"
+                })
                 matched_terms.add(term)
 
     # ✅ 3. FAISSベクトル検索
@@ -72,11 +86,11 @@ def search_meddra_v2(query, faiss_index, meddra_terms, synonym_df, top_k_faiss=1
         if idx < len(meddra_terms):
             term_raw = meddra_terms[idx]
             term = term_raw.strip()
-
             results.append({
-                "term": term,
+                "term": query,                      # 拡張語（例："Pruritus"）
+                "term_mapped": term,                # 類似語（例："Lip pruritus"）
                 "score": float(distances[0][i]),
-                "matched_from": matched_from_label or " FAISSベクトル検索"
+                "matched_from": "FAISS検索"
             })
 
     return pd.DataFrame(results)

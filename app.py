@@ -142,7 +142,7 @@ if st.button("検索"):
 
             # ✅ term + term_mapped のペアで重複を除去
             if search_results:
-                all_results = pd.concat(search_results).drop_duplicates(subset=["term", "term_mapped"]).reset_index(drop=True)
+                all_results = pd.concat(search_results).reset_index(drop=True)
             else:
                 all_results = pd.DataFrame(columns=["term", "term_mapped", "score", "matched_from"])  # fallback
 

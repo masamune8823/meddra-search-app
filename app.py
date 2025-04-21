@@ -133,11 +133,11 @@ if st.button("検索"):
                 )
                 search_results.append(result)
 
-            # ✅ 結果を統合（termの重複を除去）
+            # ✅ 結果を統合（termの重複を除去 → term + term_mapped に変更）
             if search_results:
-                all_results = pd.concat(search_results).drop_duplicates(subset=["term"]).reset_index(drop=True)
+                all_results = pd.concat(search_results).drop_duplicates(subset=["term", "term_mapped"]).reset_index(drop=True)
             else:
-                all_results = pd.DataFrame(columns=["term", "score", "matched_from"])  # fallback
+                all_results = pd.DataFrame(columns=["term", "score", "matched_from", "term_mapped"])  # fallback
 
             
         # ✅ STEP 5: GPT再スコアリング
@@ -278,7 +278,7 @@ if st.button("検索"):
 
 
             display_cols = [
-                "term", "matched_from", "score",
+                "term", "matched_from", "score", "term_mapped",
                 "PT_Japanese", "HLT_Japanese", "HLGT_Japanese", "SOC_Japanese"
             ]
 

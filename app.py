@@ -129,22 +129,15 @@ if st.button("検索"):
                     meddra_terms=meddra_terms,
                     synonym_df=synonym_df,
                     top_k_faiss=10,
-                    matched_from_label=None,          # ✅ matched_from_label は FAISS にだけ内部で使われる
-                   original_query=kw                 # ✅ 拡張語（例："Pruritus"）を明示的に渡す
+                    matched_from_label=f"GPT拡張語: {kw}"  # 🔍 由来をキーワードごとに記録
                 )
-
-                # ✅ 念のため term_mapped 列がなければ補完
-                if "term_mapped" not in result.columns:
-                    result["term_mapped"] = result["term"]
-
                 search_results.append(result)
 
-
-            # ✅ term + term_mapped のペアで重複を除去
+            # ✅ 結果を統合（termの重複を除去）
             if search_results:
-                all_results = pd.concat(search_results).reset_index(drop=True)
+                all_results = pd.concat(search_results).drop_duplicates(subset=["term"]).reset_index(drop=True)
             else:
-                all_results = pd.DataFrame(columns=["term", "term_mapped", "score", "matched_from"])  # fallback
+                all_results = pd.DataFrame(columns=["term", "score", "matched_from"])  # fallback
 
             
         # ✅ STEP 5: GPT再スコアリング
@@ -285,7 +278,7 @@ if st.button("検索"):
 
 
             display_cols = [
-                "term", "matched_from", "score", "term_mapped",
+                "term", "matched_from", "score",
                 "PT_Japanese", "HLT_Japanese", "HLGT_Japanese", "SOC_Japanese"
             ]
 

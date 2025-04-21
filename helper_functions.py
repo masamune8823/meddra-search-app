@@ -75,7 +75,6 @@ def search_meddra_v2(query, faiss_index, meddra_terms, synonym_df, top_k_faiss=1
 
             results.append({
                 "term": query,
-                "term_mapped": term, 
                 "score": float(distances[0][i]),
                 "matched_from": matched_from_label or " FAISSベクトル検索"
             })

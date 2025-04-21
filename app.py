@@ -129,15 +129,16 @@ if st.button("検索"):
                     meddra_terms=meddra_terms,
                     synonym_df=synonym_df,
                     top_k_faiss=10,
-                    matched_from_label=f"GPT拡張語: {kw}"  # 🔍 由来をキーワードごとに記録
+                    matched_from_label=None,          # ✅ matched_from_label は FAISS にだけ内部で使われる
+                   original_query=kw                 # ✅ 拡張語（例："Pruritus"）を明示的に渡す
                 )
-                search_results.append(result)
 
-                # ✅ 念のため term_mapped 列がなければ補完
-                if "term_mapped" not in result.columns:
-                    result["term_mapped"] = result["term"]
+    # ✅ 念のため term_mapped 列がなければ補完
+    if "term_mapped" not in result.columns:
+        result["term_mapped"] = result["term"]
 
-                search_results.append(result)
+    search_results.append(result)
+
 
             # ✅ term + term_mapped のペアで重複を除去
             if search_results:

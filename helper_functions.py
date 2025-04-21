@@ -53,31 +53,20 @@ def search_meddra_v2(query, faiss_index, meddra_terms, synonym_df, top_k_faiss=1
         for _, row in synonym_hits.iterrows():
             term = row["PT_Japanese"]
             if term not in matched_terms:
-                results.append({
-                    "term": query,                  # 🔍 入力語（例：かゆみ）
-                    "term_mapped": term,            # 🔁 PTにマッピングされた語（例：そう痒症）
-                    "score": 1.0,
-                    "matched_from": "シノニム辞書検索"
-                })
+                results.append({"term": term, "score": 1.0, "matched_from": "シノニム辞書検索"})
                 matched_terms.add(term)
 
     # ✅ 2. 正規辞書照合（部分一致）
     for term in meddra_terms:
         if isinstance(term, str) and query.lower() in term.lower():
             if term not in matched_terms:
-                results.append({
-                    "term": query,                  # 🔍 拡張語（例：Pruritus）
-                    "term_mapped": term,            # 🔁 一致したMedDRA用語
-                    "score": 1.0,
-                    "matched_from": "正規辞書照合検索"
-                })
+                results.append({"term": term, "score": 1.0, "matched_from": "正規辞書照合検索"})
                 matched_terms.add(term)
 
     # ✅ 3. FAISSベクトル検索
     from helper_functions import encode_query
     query_vector = encode_query(query).astype(np.float32)
     distances, indices = faiss_index.search(np.array([query_vector]), top_k_faiss)
-
     for i in range(len(indices[0])):
         idx = indices[0][i]
         if idx < len(meddra_terms):
@@ -85,10 +74,9 @@ def search_meddra_v2(query, faiss_index, meddra_terms, synonym_df, top_k_faiss=1
             term = term_raw.strip()
 
             results.append({
-                "term": term,                      # 🔍 拡張語（例：Pruritus）
-                "term_mapped": term,                # 🔁 類似語（例：Lip pruritus）
+                "term": term,
                 "score": float(distances[0][i]),
-                "matched_from": matched_from_label or "FAISSベクトル検索"
+                "matched_from": matched_from_label or " FAISSベクトル検索"
             })
 
     return pd.DataFrame(results)

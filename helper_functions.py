@@ -85,7 +85,7 @@ def search_meddra_v2(query, faiss_index, meddra_terms, synonym_df, top_k_faiss=1
             term = term_raw.strip()
 
             results.append({
-                "term": query,                      # 🔍 拡張語（例：Pruritus）
+                "term": term,                      # 🔍 拡張語（例：Pruritus）
                 "term_mapped": term,                # 🔁 類似語（例：Lip pruritus）
                 "score": float(distances[0][i]),
                 "matched_from": matched_from_label or "FAISSベクトル検索"

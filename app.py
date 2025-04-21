@@ -133,11 +133,11 @@ if st.button("検索"):
                    original_query=kw                 # ✅ 拡張語（例："Pruritus"）を明示的に渡す
                 )
 
-    # ✅ 念のため term_mapped 列がなければ補完
-    if "term_mapped" not in result.columns:
-        result["term_mapped"] = result["term"]
+                # ✅ 念のため term_mapped 列がなければ補完
+                if "term_mapped" not in result.columns:
+                    result["term_mapped"] = result["term"]
 
-    search_results.append(result)
+                search_results.append(result)
 
 
             # ✅ term + term_mapped のペアで重複を除去

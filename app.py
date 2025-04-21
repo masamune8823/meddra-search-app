@@ -135,7 +135,7 @@ if st.button("検索"):
 
             # ✅ 結果を統合（term_mappedとmatched_fromの重複を除去）
             if search_results:
-               all_results = pd.concat(search_results).drop_duplicates(subset=["term_mapped", "matched_from"]).reset_index(drop=True)
+               all_results = pd.concat(search_results).drop_duplicates(subset=["term", "matched_from", "term_mapped"]).reset_index(drop=True)
             else:
                 all_results = pd.DataFrame(columns=["term", "term_mapped", "score", "matched_from"])  # fallback
 

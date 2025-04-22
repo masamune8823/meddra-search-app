@@ -41,7 +41,7 @@ def encode_query(text):
     return model.encode([text])[0]
 
 # ✅ 改良版 検索処理（部分一致 + 辞書 + FAISS）v2
-def search_meddra_v2(query, faiss_index, meddra_terms, synonym_df, top_k_faiss=10, matched_from_label=None):
+def search_meddra_v2(original_input, query, faiss_index, meddra_terms, synonym_df, top_k_faiss=10, matched_from_label=None):
     import pandas as pd
 
     results = []
@@ -53,14 +53,14 @@ def search_meddra_v2(query, faiss_index, meddra_terms, synonym_df, top_k_faiss=1
         for _, row in synonym_hits.iterrows():
             term = row["PT_Japanese"]
             if term not in matched_terms:
-                results.append({"term": term, "score": 1.0, "matched_from": "シノニム辞書検索"})
+                results.append({"original_input": original_input,"term": term, "score": 1.0, "matched_from": "シノニム辞書"})
                 matched_terms.add(term)
 
     # ✅ 2. 正規辞書照合（部分一致）
     for term in meddra_terms:
         if isinstance(term, str) and query.lower() in term.lower():
             if term not in matched_terms:
-                results.append({"term": query, "score": 1.0, "matched_from": "正規辞書照合検索"})
+                results.append({ "original_input": original_input,"query": query,"term": term, "score": 1.0, "matched_from": "正規辞書"})
                 matched_terms.add(term)
 
     # ✅ 3. FAISSベクトル検索
@@ -74,9 +74,11 @@ def search_meddra_v2(query, faiss_index, meddra_terms, synonym_df, top_k_faiss=1
             term = term_raw.strip()
 
             results.append({
+                "original_input": original_input,
+                "query": query,
                 "term": term,
                 "score": float(distances[0][i]),
-                "matched_from": matched_from_label or " FAISSベクトル検索"
+                "matched_from": matched_from_label or " FAISSベクトル"
             })
 
     return pd.DataFrame(results)

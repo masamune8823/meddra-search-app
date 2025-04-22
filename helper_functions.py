@@ -183,11 +183,36 @@ def rerank_results_batch(original_input, candidates, score_cache=None):
             for term in new_terms:
                 score_cache[(original_input, term)] = 5.0  # fallback
 
+    import streamlit as st
+
+    # デバッグ：GPT評価対象語
+    st.subheader("🧪 GPT評価対象語（new_terms）")
+    st.write(new_terms)
+
+    # デバッグ：表示候補語
+    st.subheader("🧪 結果表示対象語（top_candidates['term']）")
+    st.write(top_candidates["term"].tolist())
+
+    # デバッグ：score_cacheの中身
+    st.subheader("🧪 score_cacheの内容（保存済み）")
+    st.write(score_cache)
+
+    # デバッグ：スコア取得ヒット確認
+    st.subheader("🧪 スコア取得のキー照合（HIT/MISS）")
+    for term in top_candidates["term"]:
+        key = (original_input, term)
+        hit = key in score_cache
+        st.write(f"{key} → {'✅ HIT' if hit else '❌ MISS'}")
+    
+    
 
     # スコアをまとめて返す
     scored = [(term, score_cache.get((original_input, term), 5.0)) for term in top_candidates["term"]]
     df = pd.DataFrame(scored, columns=["term", "Relevance"])
     return df.sort_values(by="Relevance", ascending=False)
+
+
+
 
 
 # GPTでSOCカテゴリを予測

@@ -192,8 +192,11 @@ def rerank_results_batch(query, candidates, score_cache=None):
                 score_cache[(query, term)] = 5.0  # fallback
 
     # スコアをまとめて返す
-    scored = [(term, score_cache.get((query, term), 5.0)) for term in top_candidates["term"]]
-    df = pd.DataFrame(scored, columns=["term", "Relevance"])
+    scored = [
+    (row["derived_term"], score_cache.get((query, row["derived_term"]), 5.0))
+    for _, row in top_candidates.iterrows()
+    ]
+    df = pd.DataFrame(scored, columns=["derived_term", "Relevance"])
     return df.sort_values(by="Relevance", ascending=False)
 
 

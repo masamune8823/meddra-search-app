@@ -41,41 +41,26 @@ def encode_query(text):
     return model.encode([text])[0]
 
 # ✅ 改良版 検索処理（部分一致 + 辞書 + FAISS）v2
-def search_meddra_v2(query, faiss_index, meddra_terms, synonym_df, top_k_faiss=10, matched_from_label=None,
-                     input_term=None, derived_term=None):
+def search_meddra_v2(query, faiss_index, meddra_terms, synonym_df, top_k_faiss=10, matched_from_label=None):
     import pandas as pd
 
     results = []
     matched_terms = set()
-    
-    input_term = query
-    
+
     # ✅ 1. シノニム辞書（variant → PT_Japanese）
     if synonym_df is not None and "variant" in synonym_df.columns:
         synonym_hits = synonym_df[synonym_df["variant"] == query]
         for _, row in synonym_hits.iterrows():
             term = row["PT_Japanese"]
             if term not in matched_terms:
-                results.append({
-                    "input_term": input_term,            # 🆕 入力語
-                    "derived_term": input_term,                            # 🆕 拡張語（ここでは入力語そのまま）
-                    "term_mapped": term,                      # 🆕 実際にマッチしたPT
-                    "score": 1.0,
-                    "matched_from": "シノニム辞書検索"
-                })
+                results.append({"term": term, "score": 1.0, "matched_from": "シノニム辞書検索"})
                 matched_terms.add(term)
 
     # ✅ 2. 正規辞書照合（部分一致）
     for term in meddra_terms:
         if isinstance(term, str) and query.lower() in term.lower():
             if term not in matched_terms:
-                results.append({
-                    "input_term": input_term,            # 🆕 入力語
-                    "derived_term": query,                            # 🆕 ベクトル検索でヒットした語（Pruritus → Lip pruritus）
-                    "term_mapped": term,                      # 🆕 そのままPTとみなす
-                    "score": 1.0,
-                    "matched_from": "正規辞書照合検索"
-                })
+                results.append({"term": term, "score": 1.0, "matched_from": "正規辞書照合検索"})
                 matched_terms.add(term)
 
     # ✅ 3. FAISSベクトル検索
@@ -89,9 +74,7 @@ def search_meddra_v2(query, faiss_index, meddra_terms, synonym_df, top_k_faiss=1
             term = term_raw.strip()
 
             results.append({
-                "input_term": input_term,            # 🆕 入力語
-                "derived_term": query,
-                "term_mapped": term, 
+                "term": term,
                 "score": float(distances[0][i]),
                 "matched_from": matched_from_label or " FAISSベクトル検索"
             })
@@ -139,7 +122,7 @@ def rerank_results_batch(query, candidates, score_cache=None):
     # 未スコアの term だけを抽出
     new_terms = []
     for i, row in top_candidates.iterrows():
-        term = row["derived_term"]
+        term = row["term"]
         if (query, term) not in score_cache:
             new_terms.append(term)
     # ✅ スコア対象の語数と中身をStreamlitで表示（デバッグ用）
@@ -191,11 +174,10 @@ def rerank_results_batch(query, candidates, score_cache=None):
             for term in new_terms:
                 score_cache[(query, term)] = 5.0  # fallback
 
-    # スコアを top_candidates に追加して返す（既存情報を保持）
-    top_candidates["Relevance"] = top_candidates["derived_term"].map(
-        lambda term: score_cache.get((query, term), 5.0)
-    )
-    return top_candidates.sort_values(by="Relevance", ascending=False)
+    # スコアをまとめて返す
+    scored = [(term, score_cache.get((query, term), 5.0)) for term in top_candidates["term"]]
+    df = pd.DataFrame(scored, columns=["term", "Relevance"])
+    return df.sort_values(by="Relevance", ascending=False)
 
 
 # GPTでSOCカテゴリを予測
@@ -289,9 +271,9 @@ def format_keywords(keywords):
 
 # MedDRA階層情報を付与
 def add_hierarchy_info(df, term_master_df):
-    merged = pd.merge(df, term_master_df, how="left", left_on="derived_term", right_on="PT_English")
+    merged = pd.merge(df, term_master_df, how="left", left_on="term", right_on="PT_English")
     return merged
     
 # ✅ 日本語PT（PT_Japanese）で階層情報をマージする関数
 def add_hierarchy_info_jp(df, term_master_df):
-    return pd.merge(df, term_master_df, how="left", left_on="derived_term", right_on="PT_Japanese")
+    return pd.merge(df, term_master_df, how="left", left_on="term", right_on="PT_Japanese")

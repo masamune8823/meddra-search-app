@@ -145,15 +145,23 @@ if st.button("検索"):
             
         # ✅ STEP 5: GPT再スコアリング
         with st.spinner("再スコアリング中（GPT一括）..."):
-            score_cache = {}  # ✅ 追加（APIコールを繰り返さないためのキャッシュ）
-            reranked = rerank_results_batch(query, all_results, score_cache)
+             score_cache = {}  # ✅ 追加（APIコールを繰り返さないためのキャッシュ）
+    
+            # derived_term と Relevance を持つ DataFrame が返ってくる
+            scored_df = rerank_results_batch(query, all_results, score_cache)
+
+            # それを all_results にマージして、元の情報（input_term など）を保持した reranked を作る
+            reranked = pd.merge(all_results, scored_df, on="derived_term", how="inner")
+
+            # スコアを再スケーリング（0-100 に）
             reranked["score"] = rescale_scores(reranked["Relevance"].tolist())
             reranked["score"] = reranked["score"].map(lambda x: round(x, 1))  # 小数1桁
+
             
         # ✅ STEP 5.5: LLT → PT の補完処理（term → PT_Japanese に正規化）
         try:
             # ✅ synonym_df により term はすでに PT 表記になっている前提でコピー
-            reranked["term_mapped"] = reranked["term"]  # synonym_df による事前補正をそのまま採用
+            reranked["term_mapped"] = reranked["derived_term"]  # synonym_df による事前補正をそのまま採用
 
 
             # 英語 → 日本語の変換辞書（term_master_dfベース）

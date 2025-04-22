@@ -146,21 +146,26 @@ def rerank_results_batch(original_input, candidates, score_cache=None):
         query = candidates["query"].iloc[0] if "query" in candidates.columns else ""
 
         # 🔧 改善プロンプト：original_input × query × term を明示
-        prompt = f"""以下は日本語での症状記述「{original_input}」に対して、
-        GPTが推定した英語の拡張語「{query}」をもとに検索された候補用語（MedDRA PT）です。
+        prompt = f"""あなたの役割は、日本語の症状記述と英語の医学用語（GPTが推定した拡張語）から導かれたMedDRA用語候補（PT）について、
+        意味的な一致度を評価することです。
 
-        それぞれの候補用語が、元の症状記述「{original_input}」とどれだけ意味的に一致しているかを 0〜10 の数値で評価してください。
+        以下の症状記述：{original_input}
+        拡張語（英語）：{query}
 
+        この拡張語を使って検索されたMedDRA候補用語について、
+        「元の症状とどれだけ意味的に一致しているか？」を0〜10で数値評価してください。
+        10 = 完全一致、0 = 全く関係がない、5 = なんとなく関連がある、など。
+
+        例：
+        1. Pruritus → 10（かゆみとの完全一致）
+        2. Prurigo → 6（関連はあるがやや限定的）
+        ...
+
+        形式：
+        1. 10
+        2. 6
+        3. 5
         """
-        for idx, term in enumerate(new_terms, 1):
-            prompt += f"{idx}. {term}\n"
-
-        prompt += "\n形式：\n1. 7\n2. 5\n... のように記載してください。"
-
-        messages = [
-            {"role": "system", "content": "あなたは医療用語の関連性を数値で判断する専門家です。"},
-            {"role": "user", "content": prompt}
-        ]
 
         try:
             response = client.chat.completions.create(

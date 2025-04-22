@@ -278,7 +278,11 @@ if st.button("検索"):
 
 
             display_cols = [
-                "term", "matched_from", "score",
+                "input_term",        # ① 入力語（かゆみ）
+                "derived_term",      # ② 拡張語 or 由来語（Pruritus）
+                "term_mapped",       # ③ PT候補（そう痒症）
+                "matched_from",      # 出典元（辞書補正 / GPT拡張語 / 正規照合）
+                "score",             # 確からしさ
                 "PT_Japanese", "HLT_Japanese", "HLGT_Japanese", "SOC_Japanese"
             ]
 

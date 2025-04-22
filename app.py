@@ -101,6 +101,8 @@ if st.button("検索"):
         st.warning("検索語を入力してください。")
     else:
         final_results = None
+        original_input = query  # 入力語を保持（上書き防止）
+        
         with st.spinner("キーワードを解析中..."):
             # ✅ STEP 1: クエリ拡張（例：「ズキズキ」→ "headache", "migraine", ...）
             predicted_keywords = expand_query_gpt(query, query_cache)
@@ -123,14 +125,15 @@ if st.button("検索"):
             search_results = []
 
             for kw in predicted_keywords:
-                result = search_meddra_v2(
-                    query=kw,
-                    faiss_index=faiss_index,
-                    meddra_terms=meddra_terms,
-                    synonym_df=synonym_df,
-                    top_k_faiss=10,
-                    matched_from_label=f"GPT拡張語: {kw}"  # 🔍 由来をキーワードごとに記録
-                )
+                    result = search_meddra_v2(
+                        original_input=original_input,
+                        query=kw,  # ← 拡張語を検索に使用
+                        faiss_index=faiss_index,
+                        meddra_terms=meddra_terms,
+                        synonym_df=synonym_df,
+                        top_k_faiss=10,
+                        matched_from_label=f"GPT拡張語: {kw}"  # 🔍 由来をキーワードごとに記録
+                    )
                 search_results.append(result)
 
             # ✅ 結果を統合（termの重複を除去）
@@ -143,7 +146,7 @@ if st.button("検索"):
         # ✅ STEP 5: GPT再スコアリング
         with st.spinner("再スコアリング中（GPT一括）..."):
             score_cache = {}  # ✅ 追加（APIコールを繰り返さないためのキャッシュ）
-            reranked = rerank_results_batch(query, all_results, score_cache)
+            reranked = rerank_results_batch(original_input, all_results, score_cache)
             reranked["score"] = rescale_scores(reranked["Relevance"].tolist())
             reranked["score"] = reranked["score"].map(lambda x: round(x, 1))  # 小数1桁
             
@@ -193,7 +196,7 @@ if st.button("検索"):
             reranked["matched_from"] = "FAISSベクトル"  # デフォルト値
 
             # GPT拡張語に一致するもの
-            reranked.loc[reranked["term"].isin(predicted_keywords), "matched_from"] = "正規辞書照合"
+            reranked.loc[reranked["term"].isin(predicted_keywords), "matched_from"] = "正規辞書"
 
             # synonym_df から補正された用語（GPT拡張語以外）
             if "variant" in synonym_df.columns and "PT_Japanese" in synonym_df.columns:

@@ -289,9 +289,9 @@ def format_keywords(keywords):
 
 # MedDRA階層情報を付与
 def add_hierarchy_info(df, term_master_df):
-    merged = pd.merge(df, term_master_df, how="left", left_on="term", right_on="PT_English")
+    merged = pd.merge(df, term_master_df, how="left", left_on="derived_term", right_on="PT_English")
     return merged
     
 # ✅ 日本語PT（PT_Japanese）で階層情報をマージする関数
 def add_hierarchy_info_jp(df, term_master_df):
-    return pd.merge(df, term_master_df, how="left", left_on="term", right_on="PT_Japanese")
+    return pd.merge(df, term_master_df, how="left", left_on="derived_term", right_on="PT_Japanese")

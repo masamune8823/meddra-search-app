@@ -120,7 +120,10 @@ def rerank_results_batch(original_input, candidates, score_cache=None):
         score_cache = {}
 
     top_candidates = candidates.head(10)
-
+    
+    # ✅ 拡張語（query）を candidates から取得（必ずここで定義）
+    query = candidates["query"].iloc[0] if "query" in candidates.columns else ""
+    
     # 未スコアの term だけを抽出
     new_terms = []
     for i, row in top_candidates.iterrows():

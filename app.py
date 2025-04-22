@@ -145,7 +145,7 @@ if st.button("検索"):
             
         # ✅ STEP 5: GPT再スコアリング
         with st.spinner("再スコアリング中（GPT一括）..."):
-             score_cache = {}  # ✅ 追加（APIコールを繰り返さないためのキャッシュ）
+            score_cache = {}  # ✅ 追加（APIコールを繰り返さないためのキャッシュ）
     
             # derived_term と Relevance を持つ DataFrame が返ってくる
             scored_df = rerank_results_batch(query, all_results, score_cache)

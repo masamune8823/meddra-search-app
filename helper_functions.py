@@ -183,13 +183,13 @@ def rerank_results_batch(original_input, candidates, score_cache=None):
             ]
 
 
-        try:
-            response = client.chat.completions.create(
-                model="gpt-3.5-turbo",
-                messages=messages,
-                temperature=0,
-            )
-            content = response.choices[0].message.content
+            try:
+                response = client.chat.completions.create(
+                    model="gpt-3.5-turbo",
+                    messages=messages,
+                    temperature=0,
+                )
+                content = response.choices[0].message.content
 
             # ✅ Streamlitログ表示（デバッグ用）
             import streamlit as st

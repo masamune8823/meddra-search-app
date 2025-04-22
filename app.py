@@ -177,7 +177,7 @@ if st.button("検索"):
 
         except Exception as e:
             st.warning(f"LLT→PT変換処理でエラーが発生しました: {e}")
-            reranked["term_mapped"] = reranked["term"]  # fallback を必ず作成
+            reranked["term_mapped"] = reranked["derived_term"]  # derived_term を使う
             
         if final_results is None:
             final_results = reranked.copy()

@@ -41,7 +41,8 @@ def encode_query(text):
     return model.encode([text])[0]
 
 # ✅ 改良版 検索処理（部分一致 + 辞書 + FAISS）v2
-def search_meddra_v2(query, faiss_index, meddra_terms, synonym_df, top_k_faiss=10, matched_from_label=None):
+def search_meddra_v2(query, faiss_index, meddra_terms, synonym_df, top_k_faiss=10, matched_from_label=None,
+                     input_term=None, derived_term=None):
     import pandas as pd
 
     results = []
@@ -56,8 +57,8 @@ def search_meddra_v2(query, faiss_index, meddra_terms, synonym_df, top_k_faiss=1
             term = row["PT_Japanese"]
             if term not in matched_terms:
                 results.append({
-                    "input_query": original_query,            # 🆕 入力語
-                    "term": query,                            # 🆕 拡張語（ここでは入力語そのまま）
+                    "input_term": input_term,            # 🆕 入力語
+                    "derived_term": input_term,                            # 🆕 拡張語（ここでは入力語そのまま）
                     "term_mapped": term,                      # 🆕 実際にマッチしたPT
                     "score": 1.0,
                     "matched_from": "シノニム辞書検索"
@@ -69,8 +70,8 @@ def search_meddra_v2(query, faiss_index, meddra_terms, synonym_df, top_k_faiss=1
         if isinstance(term, str) and query.lower() in term.lower():
             if term not in matched_terms:
                 results.append({
-                    "input_query": original_query,            # 🆕 入力語
-                    "term": query,                            # 🆕 ベクトル検索でヒットした語（Pruritus → Lip pruritus）
+                    "input_term": input_term,            # 🆕 入力語
+                    "derived_term": query,                            # 🆕 ベクトル検索でヒットした語（Pruritus → Lip pruritus）
                     "term_mapped": term,                      # 🆕 そのままPTとみなす
                     "score": 1.0,
                     "matched_from": "正規辞書照合検索"
@@ -88,8 +89,8 @@ def search_meddra_v2(query, faiss_index, meddra_terms, synonym_df, top_k_faiss=1
             term = term_raw.strip()
 
             results.append({
-                "input_query": original_query,            # 🆕 入力語
-                "term": term,
+                "input_term": input_term,            # 🆕 入力語
+                "derived_term": query,
                 "term_mapped": term, 
                 "score": float(distances[0][i]),
                 "matched_from": matched_from_label or " FAISSベクトル検索"

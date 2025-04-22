@@ -191,13 +191,11 @@ def rerank_results_batch(query, candidates, score_cache=None):
             for term in new_terms:
                 score_cache[(query, term)] = 5.0  # fallback
 
-    # スコアをまとめて返す
-    scored = [
-    (row["derived_term"], score_cache.get((query, row["derived_term"]), 5.0))
-    for _, row in top_candidates.iterrows()
-    ]
-    df = pd.DataFrame(scored, columns=["derived_term", "Relevance"])
-    return df.sort_values(by="Relevance", ascending=False)
+    # スコアを top_candidates に追加して返す（既存情報を保持）
+    top_candidates["Relevance"] = top_candidates["derived_term"].map(
+        lambda term: score_cache.get((query, term), 5.0)
+    )
+    return top_candidates.sort_values(by="Relevance", ascending=False)
 
 
 # GPTでSOCカテゴリを予測

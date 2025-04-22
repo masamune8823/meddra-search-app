@@ -96,15 +96,21 @@ def suggest_similar_terms(query, faiss_index, meddra_terms, top_k=10):
     return suggestions
    
 # 回答からスコア抽出（単純実装）
-def extract_score_from_response(response_text):
-    for word in ["10", "９", "8", "７", "6", "5", "4", "3", "2", "1", "0"]:
-        if word in response_text:
-            try:
-                return float(word)
-            except:
-                continue
+def extract_score_from_response(line):
+    # 例: "1. 7" → 7 を抽出、先頭に数字とピリオドがある形式だけ対象
+    import re
+    match = re.match(r"^\d+\.\s*([0-9０-９]+)", line.strip())
+    if match:
+        try:
+            return float(match.group(1).replace("０", "0").replace("１", "1").replace("２", "2")
+                                         .replace("３", "3").replace("４", "4").replace("５", "5")
+                                         .replace("６", "6").replace("７", "7").replace("８", "8")
+                                         .replace("９", "9"))
+        except:
+            pass
     return 5.0  # fallback
-
+    
+    
 # スコアの再スケーリング
 def rescale_scores(scores):
     min_score = min(scores)
@@ -166,8 +172,8 @@ def rerank_results_batch(original_input, candidates, score_cache=None):
 
             # ✅ Streamlitログ表示（デバッグ用）
             import streamlit as st
-            # st.subheader("🧾 GPTレスポンス内容（一括形式）")
-            #  st.code(content)
+            st.subheader("🧾 GPTレスポンス内容（一括形式）")
+            st.code(content)
 
             # 数値抽出（形式：1. 7）
             for line in content.strip().split("\n"):

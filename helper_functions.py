@@ -166,8 +166,8 @@ def rerank_results_batch(original_input, candidates, score_cache=None):
 
             # ✅ Streamlitログ表示（必要に応じて有効化）
             import streamlit as st
-            # st.subheader("🧾 GPTレスポンス内容（一括形式）")
-            # st.code(content)
+            st.subheader("🧾 GPTレスポンス内容（一括形式）")
+            st.code(content)
 
             for line in content.strip().split("\n"):
                 if "." in line:

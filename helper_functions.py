@@ -53,14 +53,26 @@ def search_meddra_v2(query, faiss_index, meddra_terms, synonym_df, top_k_faiss=1
         for _, row in synonym_hits.iterrows():
             term = row["PT_Japanese"]
             if term not in matched_terms:
-                results.append({"term": term, "term_mapped": term,"score": 1.0, "matched_from": "シノニム辞書検索"})
+                                results.append({
+                    "input_query": original_query,            # 🆕 入力語
+                    "term": query,                            # 🆕 拡張語（ここでは入力語そのまま）
+                    "term_mapped": term,                      # 🆕 実際にマッチしたPT
+                    "score": 1.0,
+                    "matched_from": "シノニム辞書検索"
+                })
                 matched_terms.add(term)
 
     # ✅ 2. 正規辞書照合（部分一致）
     for term in meddra_terms:
         if isinstance(term, str) and query.lower() in term.lower():
             if term not in matched_terms:
-                results.append({"term":query, "term_mapped": term,"score": 1.0, "matched_from": "正規辞書照合検索"})
+                results.append({
+                    "input_query": original_query,            # 🆕 入力語
+                    "term": query,                            # 🆕 ベクトル検索でヒットした語（Pruritus → Lip pruritus）
+                    "term_mapped": term,                      # 🆕 そのままPTとみなす
+                    "score": 1.0,
+                    "matched_from": "正規辞書照合検索"
+                })
                 matched_terms.add(term)
 
     # ✅ 3. FAISSベクトル検索
@@ -74,6 +86,7 @@ def search_meddra_v2(query, faiss_index, meddra_terms, synonym_df, top_k_faiss=1
             term = term_raw.strip()
 
             results.append({
+                "input_query": original_query,            # 🆕 入力語
                 "term": term,
                 "term_mapped": term, 
                 "score": float(distances[0][i]),

@@ -55,7 +55,7 @@ def search_meddra_v2(query, faiss_index, meddra_terms, synonym_df, top_k_faiss=1
         for _, row in synonym_hits.iterrows():
             term = row["PT_Japanese"]
             if term not in matched_terms:
-                                results.append({
+                results.append({
                     "input_query": original_query,            # 🆕 入力語
                     "term": query,                            # 🆕 拡張語（ここでは入力語そのまま）
                     "term_mapped": term,                      # 🆕 実際にマッチしたPT

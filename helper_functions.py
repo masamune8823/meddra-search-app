@@ -142,47 +142,27 @@ def rerank_results_batch(original_input, candidates, score_cache=None):
     # st.write("🧪 未評価語リスト:", new_terms)
     
     if new_terms:
-        # 🔍 拡張語（query）を candidates から取得（1件目でOK）
-        valid_query_series = candidates["query"].dropna()
-        query = valid_query_series.iloc[0] if not valid_query_series.empty else ""
+        # 🔧 original_input と query によってプロンプト分岐
+        if not query or query.strip() == original_input.strip():
+            prompt = f"""以下の日本語の症状「{original_input}」に対して、以下のMedDRA用語（PT）がどれくらい意味的に一致しているかを教えてください。
+    一致度を 0〜10 の数値で記述してください。
 
-        # ✅ GPTに渡すプロンプトの全文
-        prompt = f"""あなたの役割は、日本語の症状記述と英語の医学用語（GPTが推定した拡張語）から導かれたMedDRA用語候補（PT）について、意味的な一致度を評価することです。
+    """
+        else:
+            prompt = f"""以下の日本語の症状「{original_input}」と、それに基づいて拡張された英語の用語「{query}」の組み合わせに対して、以下のMedDRA用語（PT）がどれくらい意味的に一致するかを教えてください。
+    一致度を 0〜10 の数値で記述してください。
 
-        【症状記述】：{original_input}  
-        【拡張語（英語）】：{query}
+    """
 
-        以下はこの拡張語を使って検索されたMedDRA用語（PT）の候補です。
+        for idx, term in enumerate(new_terms, 1):
+            prompt += f"{idx}. {term}\n"
 
-        「この候補用語が、元の症状とどれだけ意味的に一致しているか？」を、0〜10 の整数で評価してください。
+        prompt += "\n形式：\n1. 7\n2. 5\n... のように記載してください。"
 
-        スコア基準：
-        - 10点 = 完全一致、直接的に該当する
-        - 7〜9点 = 非常に近い、部分一致
-        - 4〜6点 = 関連はあるが異なる状態や表現
-        - 1〜3点 = 少しは関連がある
-        - 0点 = 関係ない
-
-        評価形式（必ず以下の形式で）：
-        1. 10
-        2. 6
-        3. 3
-        ...
-
-        """
-
-        # ✅ messagesを明示的に定義（← ここが必須！）
         messages = [
-            {
-                "role": "system",
-                "content": "あなたは医療用語の意味的関連性を評価する専門家です。"
-            },
-            {
-                "role": "user",
-                "content": prompt
-            }
+            {"role": "system", "content": "あなたは医療用語の関連性を数値で判断する専門家です。"},
+            {"role": "user", "content": prompt}
         ]
-
 
         try:
             response = client.chat.completions.create(
@@ -192,18 +172,18 @@ def rerank_results_batch(original_input, candidates, score_cache=None):
             )
             content = response.choices[0].message.content
 
-            # ✅ Streamlitログ表示（デバッグ用）
+            # ✅ Streamlitログ表示（必要に応じて有効化）
             import streamlit as st
-            st.subheader("🧾 GPTレスポンス内容（一括形式）")
-            st.code(content)
+            # st.subheader("🧾 GPTレスポンス内容（一括形式）")
+            # st.code(content)
 
-            # 数値抽出（形式：1. 7）
+            # ✅ 安定版の抽出形式（1. 7, 2. 6 ...）
             for line in content.strip().split("\n"):
                 if "." in line:
                     parts = line.split(".")
                     try:
                         idx = int(parts[0].strip())
-                        score = extract_score_from_response(line)
+                        score = float(parts[1].strip())
                         term = new_terms[idx - 1]
                         score_cache[(query, term)] = score
                     except:
@@ -211,6 +191,7 @@ def rerank_results_batch(original_input, candidates, score_cache=None):
         except Exception as e:
             for term in new_terms:
                 score_cache[(query, term)] = 5.0  # fallback
+
 
     # スコアをまとめて返す
     scored = [(term, score_cache.get((query, term), 5.0)) for term in top_candidates["term"]]

@@ -170,26 +170,26 @@ def rerank_results_batch(original_input, candidates, score_cache=None):
 
         """
 
-       # ✅ messagesを明示的に定義（← ここが必須！）
-            messages = [
-                {
-                    "role": "system",
-                    "content": "あなたは医療用語の意味的関連性を評価する専門家です。"
-                },
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ]
+        # ✅ messagesを明示的に定義（← ここが必須！）
+        messages = [
+            {
+                "role": "system",
+                "content": "あなたは医療用語の意味的関連性を評価する専門家です。"
+            },
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ]
 
 
-            try:
-                response = client.chat.completions.create(
-                    model="gpt-3.5-turbo",
-                    messages=messages,
-                    temperature=0,
-                )
-                content = response.choices[0].message.content
+        try:
+            response = client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=messages,
+                temperature=0,
+            )
+            content = response.choices[0].message.content
 
             # ✅ Streamlitログ表示（デバッグ用）
             import streamlit as st

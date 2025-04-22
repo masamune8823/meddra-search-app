@@ -141,31 +141,47 @@ def rerank_results_batch(original_input, candidates, score_cache=None):
     # st.write("🧪 スコア未評価語数:", len(new_terms), "件")
     # st.write("🧪 未評価語リスト:", new_terms)
     
-    if new_terms:
-        # 🔍 拡張語（query）を candidates から取得（1件目でOK）
-        query = candidates["query"].iloc[0] if "query" in candidates.columns else ""
+if new_terms:
+    # 🔍 拡張語（query）を candidates から取得（1件目でOK）
+    query = candidates["query"].iloc[0] if "query" in candidates.columns else ""
 
-        # 🔧 改善プロンプト：original_input × query × term を明示
-        prompt = f"""あなたの役割は、日本語の症状記述と英語の医学用語（GPTが推定した拡張語）から導かれたMedDRA用語候補（PT）について、
-        意味的な一致度を評価することです。
+    # ✅ GPTに渡すプロンプトの全文
+    prompt = f"""あなたの役割は、日本語の症状記述と英語の医学用語（GPTが推定した拡張語）から導かれたMedDRA用語候補（PT）について、意味的な一致度を評価することです。
 
-        以下の症状記述：{original_input}
-        拡張語（英語）：{query}
+    【症状記述】：{original_input}  
+    【拡張語（英語）】：{query}
 
-        この拡張語を使って検索されたMedDRA候補用語について、
-        「元の症状とどれだけ意味的に一致しているか？」を0〜10で数値評価してください。
-        10 = 完全一致、0 = 全く関係がない、5 = なんとなく関連がある、など。
+    以下はこの拡張語を使って検索されたMedDRA用語（PT）の候補です。
 
-        例：
-        1. Pruritus → 10（かゆみとの完全一致）
-        2. Prurigo → 6（関連はあるがやや限定的）
-        ...
+    「この候補用語が、元の症状とどれだけ意味的に一致しているか？」を、0〜10 の整数で評価してください。
 
-        形式：
-        1. 10
-        2. 6
-        3. 5
-        """
+    スコア基準：
+    - 10点 = 完全一致、直接的に該当する
+    - 7〜9点 = 非常に近い、部分一致
+    - 4〜6点 = 関連はあるが異なる状態や表現
+    - 1〜3点 = 少しは関連がある
+    - 0点 = 関係ない
+
+    評価形式（必ず以下の形式で）：
+    1. 10
+    2. 6
+    3. 3
+    ...
+
+    """
+
+        # ✅ messagesを明示的に定義（← ここが必須！）
+        messages = [
+            {
+                "role": "system",
+                "content": "あなたは医療用語の意味的関連性を評価する専門家です。"
+            },
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ]
+
 
         try:
             response = client.chat.completions.create(

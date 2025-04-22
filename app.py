@@ -295,7 +295,7 @@ if st.button("検索"):
         # st.write("🔍 final_results の先頭5行:", final_results.head())      
 
         # ✅ STEP 8.2: 存在する列のみ抽出して表示
-        available_cols = [col for col in display_cols if col in final_results.columns]
+        # available_cols = [col for col in display_cols if col in final_results.columns]
 
         st.dataframe(
             final_results[available_cols].rename(columns={

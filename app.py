@@ -145,11 +145,18 @@ if st.button("検索"):
             
         # ✅ STEP 5: GPT再スコアリング
         with st.spinner("再スコアリング中（GPT一括）..."):
-            score_cache = {}  # ✅ 追加（APIコールを繰り返さないためのキャッシュ）
-            reranked = rerank_results_batch(original_input, all_results, score_cache)
-            reranked["score"] = rescale_scores(reranked["Relevance"].tolist())
-            reranked["score"] = reranked["score"].map(lambda x: round(x, 1))  # 小数1桁
-            
+           score_cache = {}
+           reranked = rerank_results_batch(original_input, all_results, score_cache)
+           reranked["score"] = rescale_scores(reranked["Relevance"].tolist())
+           reranked["score"] = reranked["score"].map(lambda x: round(x, 1))  # 小数1桁
+           
+           reranked = pd.merge(
+                   reranked,
+                   all_results[["term", "matched_from", "query", "original_input"]],
+                   how="left",
+                   on="term"
+           )
+           
         # ✅ STEP 5.5: LLT → PT の補完処理（term → PT_Japanese に正規化）
         try:
             # ✅ synonym_df により term はすでに PT 表記になっている前提でコピー

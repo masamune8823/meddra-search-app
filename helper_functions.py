@@ -142,18 +142,10 @@ def rerank_results_batch(original_input, candidates, score_cache=None):
     # st.write("🧪 未評価語リスト:", new_terms)
     
     if new_terms:
-        # 🔧 original_input と query によってプロンプト分岐
-        if not query or query.strip() == original_input.strip():
-            prompt = f"""以下の日本語の症状「{original_input}」に対して、以下のMedDRA用語（PT）がどれくらい意味的に一致しているかを教えてください。
-    一致度を 0〜10 の数値で記述してください。
+        # 🔧 入力語ベースのプロンプト構成に統一
+        prompt = f"""以下の日本語の症状「{original_input}」に対して、以下のMedDRA用語（PT）がどれくらい意味的に一致しているかを教えてください。一致度を 0〜10 の数値で記述してください。
 
     """
-        else:
-            prompt = f"""以下の日本語の症状「{original_input}」と、それに基づいて拡張された英語の用語「{query}」の組み合わせに対して、以下のMedDRA用語（PT）がどれくらい意味的に一致するかを教えてください。
-    一致度を 0〜10 の数値で記述してください。
-
-    """
-
         for idx, term in enumerate(new_terms, 1):
             prompt += f"{idx}. {term}\n"
 
@@ -177,7 +169,6 @@ def rerank_results_batch(original_input, candidates, score_cache=None):
             # st.subheader("🧾 GPTレスポンス内容（一括形式）")
             # st.code(content)
 
-            # ✅ 安定版の抽出形式（1. 7, 2. 6 ...）
             for line in content.strip().split("\n"):
                 if "." in line:
                     parts = line.split(".")
@@ -185,12 +176,12 @@ def rerank_results_batch(original_input, candidates, score_cache=None):
                         idx = int(parts[0].strip())
                         score = float(parts[1].strip())
                         term = new_terms[idx - 1]
-                        score_cache[(query, term)] = score
+                        score_cache[(original_input, term)] = score  # keyを変えるならここも
                     except:
                         continue
         except Exception as e:
             for term in new_terms:
-                score_cache[(query, term)] = 5.0  # fallback
+                score_cache[(original_input, term)] = 5.0  # fallback
 
 
     # スコアをまとめて返す

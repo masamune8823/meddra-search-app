@@ -115,7 +115,7 @@ def rescale_scores(scores):
 
 # ✅ 再ランキング処理（GPT一括呼び出し版）
 # ✅ GPT再ランキング処理（1メッセージ形式）
-def def rerank_results_batch(original_input, candidates, score_cache=None):
+def rerank_results_batch(original_input, candidates, score_cache=None):
     if score_cache is None:
         score_cache = {}
 

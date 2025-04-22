@@ -192,19 +192,6 @@ if st.button("検索"):
             # st.warning("🧯 PT_Japanese に存在しない term_mapped（上位10件）:")
             # st.write(list(unmatched_pt)[:10])
 
-            # STEP 5.6: matched_from 列の追加
-            reranked["matched_from"] = "FAISSベクトル"  # デフォルト値
-
-            # GPT拡張語に一致するもの
-            reranked.loc[reranked["term"].isin(predicted_keywords), "matched_from"] = "正規辞書"
-
-            # synonym_df から補正された用語（GPT拡張語以外）
-            if "variant" in synonym_df.columns and "PT_Japanese" in synonym_df.columns:
-                synonym_terms = synonym_df["PT_Japanese"].unique().tolist()
-                condition = reranked["term"].isin(synonym_terms) & ~reranked["term"].isin(predicted_keywords)
-                reranked.loc[condition, "matched_from"] = "シノニム辞書"
-
-
             # ✅ STEP 6: MedDRA階層付加
             with st.spinner("階層情報を付加中..."):
 

@@ -121,10 +121,13 @@ if st.button("検索"):
         # ✅ STEP 4: MedDRA検索（search_meddra_v2 に差し替え）
         with st.spinner("🔍 検索構成: ベクトル検索（意味的近さ）＋正規辞書照合（PT/LLT一致）＋シノニム辞書（表記ゆれ補正）"):
             search_results = []
-
+            input_term = query  # ← ユーザー入力時の query を input_term に確保
+            
             for kw in predicted_keywords:
                 result = search_meddra_v2(
                     query=kw,
+                    input_term=input_term,
+                    derived_term=kw,  # 🆕 拡張語を明示的に渡す
                     faiss_index=faiss_index,
                     meddra_terms=meddra_terms,
                     synonym_df=synonym_df,

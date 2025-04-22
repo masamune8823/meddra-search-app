@@ -140,7 +140,7 @@ if st.button("検索"):
             if search_results:
                 all_results = pd.concat(search_results).drop_duplicates(subset=["input_term", "derived_term", "term_mapped"]).reset_index(drop=True)
             else:
-                all_results = pd.DataFrame(columns=["term", "score", "matched_from"])  # fallback
+                all_results = pd.DataFrame(columns=["derived_term", "score", "matched_from"])  # fallback
 
             
         # ✅ STEP 5: GPT再スコアリング
@@ -168,7 +168,7 @@ if st.button("検索"):
             pt_map_dict = dict(zip(term_master_df["PT_English"], term_master_df["PT_Japanese"]))
 
             # 表示用にのみ term_mapped を作成（term列は変更しない）
-            reranked["term_mapped"] = reranked["term"].map(lambda x: pt_map_dict.get(x, x))
+            reranked["term_mapped"] = reranked["derived_term"].map(lambda x: pt_map_dict.get(x, x))
     
     
     
@@ -204,12 +204,12 @@ if st.button("検索"):
             reranked["matched_from"] = "FAISS類似語"  # デフォルト値
 
             # GPT拡張語に一致するもの
-            reranked.loc[reranked["term"].isin(predicted_keywords), "matched_from"] = "GPT拡張語"
+            reranked.loc[reranked["derived_term"].isin(predicted_keywords), "matched_from"] = "GPT拡張語"
 
             # synonym_df から補正された用語（GPT拡張語以外）
             if "variant" in synonym_df.columns and "PT_Japanese" in synonym_df.columns:
                 synonym_terms = synonym_df["PT_Japanese"].unique().tolist()
-                condition = reranked["term"].isin(synonym_terms) & ~reranked["term"].isin(predicted_keywords)
+                condition = reranked["derived_term"].isin(synonym_terms) & ~reranked["derived_term"].isin(predicted_keywords)
                 reranked.loc[condition, "matched_from"] = "辞書補正"
 
 
@@ -218,21 +218,21 @@ if st.button("検索"):
 
                 # STEP 6.1: term列の準備（term_mapped → term にリネーム or fallback で空列追加）
                 if "term_mapped" in reranked.columns:
-                    df_for_merge = reranked.rename(columns={"term_mapped": "term"}).copy()
-                elif "term" in reranked.columns:
+                    df_for_merge = reranked.rename(columns={"term_mapped": "derived_term"}).copy()
+                elif "derived_term" in reranked.columns:
                     df_for_merge = reranked.copy()
                 else:
                     st.warning("⚠️ 'term' 列が存在しないため、空列を追加します。")
                     df_for_merge = reranked.copy()
-                    df_for_merge["term"] = ""
+                    df_for_merge["derived_term"] = ""
 
                 # STEP 6.2: デバッグ出力
                 try:
                     # st.write("🧪 df_for_merge の型:", type(df_for_merge))
                     # st.write("🧪 df_for_merge のカラム:", df_for_merge.columns.tolist() if isinstance(df_for_merge, pd.DataFrame) else "（DataFrameでない）")
 
-                    if isinstance(df_for_merge, pd.DataFrame) and "term" in df_for_merge.columns:
-                        # preview = df_for_merge["term"].dropna().astype(str).unique().tolist()
+                    if isinstance(df_for_merge, pd.DataFrame) and "derived_term" in df_for_merge.columns:
+                        # preview = df_for_merge["derived_term"].dropna().astype(str).unique().tolist()
                         # st.write("🧭 term列（階層付加用）のユニーク値（抜粋）:", preview[:10])
                         pass  # 表示だけOFF
                     else:
@@ -243,10 +243,10 @@ if st.button("検索"):
                 # STEP 6.3: 階層情報をマージ（term_mapped → PT_Japanese）
                 try:
                     if "term_mapped" not in reranked.columns:
-                        reranked["term_mapped"] = reranked["term"]
+                        reranked["term_mapped"] = reranked["derived_term"]
 
-                    # ✅ term_master_dfに "term" 列があれば削除（念のため）
-                    term_master_clean = term_master_df.drop(columns=["term"], errors="ignore")
+                    # ✅ term_master_dfに "derived_term" 列があれば削除（念のため）
+                    term_master_clean = term_master_df.drop(columns=["derived_term"], errors="ignore")
                 
                    
                     final_results = pd.merge(
@@ -274,7 +274,7 @@ if st.button("検索"):
                 # st.write("🔍 階層付与後件数:", len(final_results))
                 # st.write("📂 term_master_df の列一覧:", term_master_df.columns.tolist())
                 
-                base_terms = set(df_for_merge["term"]) if "term" in df_for_merge.columns else set()
+                base_terms = set(df_for_merge["derived_term"]) if"derived_term" in df_for_merge.columns else set()
                 hier_terms = set(final_results["PT_Japanese"].dropna()) if "PT_Japanese" in final_results.columns else set()
 
                 # unmatched_terms = base_terms - hier_terms
@@ -369,7 +369,7 @@ if st.button("検索"):
                         datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                         query,
                         predicted_keywords,
-                        row.get("term", ""),
+                        row.get("derived_term", ""),
                         row.get("matched_from", ""),
                         row.get("score", "")
                     ])

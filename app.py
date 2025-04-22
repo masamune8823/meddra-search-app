@@ -289,6 +289,9 @@ if st.button("検索"):
         if not isinstance(final_results, pd.DataFrame) or final_results.empty:
             st.error("❌ final_results が空、またはDataFrameではありません。検索結果が存在しない可能性があります。")
             st.stop()
+        # ✅ ここで available_cols を定義（確実に存在させる）
+        available_cols = [col for col in display_cols if col in final_results.columns]
+
 
         # ✅ デバッグ出力（オプション）
         # st.write("🔍 final_results の型:", type(final_results))

@@ -46,7 +46,7 @@ def search_meddra_v2(query, faiss_index, meddra_terms, synonym_df, top_k_faiss=1
 
     results = []
     matched_terms = set()
-    original_query = query
+    original_query = original_query or query  # fallback
     
     
     # ✅ 1. シノニム辞書（variant → PT_Japanese）

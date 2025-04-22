@@ -125,15 +125,15 @@ if st.button("検索"):
             search_results = []
 
             for kw in predicted_keywords:
-                    result = search_meddra_v2(
-                        original_input=original_input,
-                        query=kw,  # ← 拡張語を検索に使用
-                        faiss_index=faiss_index,
-                        meddra_terms=meddra_terms,
-                        synonym_df=synonym_df,
-                        top_k_faiss=10,
-                        matched_from_label=f"GPT拡張語: {kw}"  # 🔍 由来をキーワードごとに記録
-                    )
+                result = search_meddra_v2(
+                    original_input=original_input,
+                    query=kw,  # ← 拡張語を検索に使用
+                    faiss_index=faiss_index,
+                    meddra_terms=meddra_terms,
+                    synonym_df=synonym_df,
+                    top_k_faiss=10,
+                    matched_from_label=f"GPT拡張語: {kw}"  # 🔍 由来をキーワードごとに記録
+                )
                 search_results.append(result)
 
             # ✅ 結果を統合（termの重複を除去）

@@ -272,49 +272,45 @@ if st.button("検索"):
                     # st.write(list(unmatched_terms)[:10])
 
                 
-            # ✅ STEP 7: SOCフィルタは削除
-            # 🔁 検索完了の表示だけを残す
-            st.success("検索完了")
+        # ✅ STEP 7: 検索完了の通知
+        st.success("検索完了")
 
+        # ✅ STEP 8: 表示用のカラムを定義（新構成：入力語 / 拡張語 / PT）
+        display_cols = [
+            "input_term",        # ① 入力語（例：かゆみ）
+            "derived_term",      # ② 拡張語 or 由来語（例：Pruritus）
+            "term_mapped",       # ③ PT候補（例：そう痒症）
+            "matched_from",      # ④ 由来（シノニム辞書 / 正規辞書照合 / GPT拡張語）
+            "score",             # ⑤ GPTによる確からしさスコア（0～100）
+            "PT_Japanese", "HLT_Japanese", "HLGT_Japanese", "SOC_Japanese"
+        ]
 
-            display_cols = [
-                "input_term",        # ① 入力語（かゆみ）
-                "derived_term",      # ② 拡張語 or 由来語（Pruritus）
-                "term_mapped",       # ③ PT候補（そう痒症）
-                "matched_from",      # 出典元（辞書補正 / GPT拡張語 / 正規照合）
-                "score",             # 確からしさ
-                "PT_Japanese", "HLT_Japanese", "HLGT_Japanese", "SOC_Japanese"
-            ]
+        # ✅ STEP 8.1: 結果が存在しない場合のチェック
+        if not isinstance(final_results, pd.DataFrame) or final_results.empty:
+            st.error("❌ final_results が空、またはDataFrameではありません。検索結果が存在しない可能性があります。")
+            st.stop()
 
+        # ✅ デバッグ出力（オプション）
+        # st.write("🔍 final_results の型:", type(final_results))
+        # st.write("🔍 final_results の先頭5行:", final_results.head())      
 
-            # STEP 8.0: 型と中身チェックをまとめて行う
-            if not isinstance(final_results, pd.DataFrame) or final_results.empty:
-                st.error("❌ final_results が空、またはDataFrameではありません。検索結果が存在しない可能性があります。")
-                st.stop()
-                
-            # ✅ デバッグ出力（オプション）
-            # st.write("🔍 final_results の型:", type(final_results))
-            # st.write("🔍 final_results の先頭5行:", final_results.head())       
-                
-            # STEP 8: 表示対象カラム（存在チェック付き）
-            display_cols = [
-                "term", "matched_from","score",
-                "PT_Japanese", "HLT_Japanese", "HLGT_Japanese", "SOC_Japanese"
-            ]
-            available_cols = [col for col in display_cols if col in final_results.columns]
+        # ✅ STEP 8.2: 存在する列のみ抽出して表示
+        available_cols = [col for col in display_cols if col in final_results.columns]
 
-            # STEP 8.1: 日本語に変換して表示
-            st.dataframe(
-                final_results[available_cols].rename(columns={
-                    "term": "拡張語",
-                    "matched_from": "由来",
-                    "score": "確からしさ (%)",
-                    "PT_Japanese": "PT（日本語）",
-                    "HLT_Japanese": "HLT（日本語）",
-                    "HLGT_Japanese": "HLGT（日本語）",
-                    "SOC_Japanese": "SOC（日本語）"
-                })
-            )
+        st.dataframe(
+            final_results[available_cols].rename(columns={
+                "input_term": "入力語",
+                "derived_term": "拡張語（由来語）",
+                "term_mapped": "PT（用語）",
+                "matched_from": "由来",
+                "score": "確からしさ (%)",
+                "PT_Japanese": "PT（日本語）",
+                "HLT_Japanese": "HLT（日本語）",
+                "HLGT_Japanese": "HLGT（日本語）",
+                "SOC_Japanese": "SOC（日本語）"
+            })
+        )
+
 
         # CSV生成時に encoding を指定する
         csv = final_results.to_csv(index=False, encoding="utf-8-sig")

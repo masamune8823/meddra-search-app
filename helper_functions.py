@@ -115,7 +115,7 @@ def rescale_scores(scores):
 
 # ✅ 再ランキング処理（GPT一括呼び出し版）
 # ✅ GPT再ランキング処理（1メッセージ形式）
-def rerank_results_batch(query, candidates, score_cache=None):
+def def rerank_results_batch(original_input, candidates, score_cache=None):
     if score_cache is None:
         score_cache = {}
 
@@ -133,11 +133,16 @@ def rerank_results_batch(query, candidates, score_cache=None):
     # st.write("🧪 未評価語リスト:", new_terms)
     
     if new_terms:
-        # 🔧 プロンプト組み立て（1メッセージに全term）
-        prompt = f"""以下の記述「{query}」に対して、各用語がどれくらい意味的に一致するかを教えてください。
-一致度を 0〜10 の数値で記述してください。
+        # 🔍 拡張語（query）を candidates から取得（1件目でOK）
+        query = candidates["query"].iloc[0] if "query" in candidates.columns else ""
 
-"""
+        # 🔧 改善プロンプト：original_input × query × term を明示
+        prompt = f"""以下は日本語での症状記述「{original_input}」に対して、
+        GPTが推定した英語の拡張語「{query}」をもとに検索された候補用語（MedDRA PT）です。
+
+        それぞれの候補用語が、元の症状記述「{original_input}」とどれだけ意味的に一致しているかを 0〜10 の数値で評価してください。
+
+        """
         for idx, term in enumerate(new_terms, 1):
             prompt += f"{idx}. {term}\n"
 

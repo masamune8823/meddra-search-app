@@ -143,7 +143,8 @@ def rerank_results_batch(original_input, candidates, score_cache=None):
     
     if new_terms:
         # 🔍 拡張語（query）を candidates から取得（1件目でOK）
-        query = candidates["query"].iloc[0] if "query" in candidates.columns else ""
+        valid_query_series = candidates["query"].dropna()
+        query = valid_query_series.iloc[0] if not valid_query_series.empty else ""
 
         # ✅ GPTに渡すプロンプトの全文
         prompt = f"""あなたの役割は、日本語の症状記述と英語の医学用語（GPTが推定した拡張語）から導かれたMedDRA用語候補（PT）について、意味的な一致度を評価することです。

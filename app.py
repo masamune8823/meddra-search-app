@@ -192,6 +192,10 @@ if st.button("検索"):
             # st.warning("🧯 PT_Japanese に存在しない term_mapped（上位10件）:")
             # st.write(list(unmatched_pt)[:10])
 
+            # 安全確認：matched_from 列が存在しない場合に備える
+            if "matched_from" not in reranked.columns:
+                reranked["matched_from"] = "検索種別不明"
+
             # ✅ STEP 6: MedDRA階層付加
             with st.spinner("階層情報を付加中..."):
 

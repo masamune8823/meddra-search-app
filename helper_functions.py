@@ -60,7 +60,7 @@ def search_meddra_v2(query, faiss_index, meddra_terms, synonym_df, top_k_faiss=1
     for term in meddra_terms:
         if isinstance(term, str) and query.lower() in term.lower():
             if term not in matched_terms:
-                results.append({"term": term, "score": 1.0, "matched_from": "正規辞書照合検索"})
+                results.append({"term": query, "score": 1.0, "matched_from": "正規辞書照合検索"})
                 matched_terms.add(term)
 
     # ✅ 3. FAISSベクトル検索

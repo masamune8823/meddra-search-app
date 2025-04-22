@@ -139,7 +139,7 @@ def rerank_results_batch(query, candidates, score_cache=None):
     # 未スコアの term だけを抽出
     new_terms = []
     for i, row in top_candidates.iterrows():
-        term = row["term"]
+        term = row["derived_term"]
         if (query, term) not in score_cache:
             new_terms.append(term)
     # ✅ スコア対象の語数と中身をStreamlitで表示（デバッグ用）

@@ -185,7 +185,7 @@ def rerank_results_batch(original_input, candidates, score_cache=None):
 
 
     # スコアをまとめて返す
-    scored = [(term, score_cache.get((query, term), 5.0)) for term in top_candidates["term"]]
+    scored = [(term, score_cache.get((original_input, term), 5.0)) for term in top_candidates["term"]]
     df = pd.DataFrame(scored, columns=["term", "Relevance"])
     return df.sort_values(by="Relevance", ascending=False)
 

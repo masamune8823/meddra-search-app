@@ -185,24 +185,30 @@ def rerank_results_batch(original_input, candidates, score_cache=None):
 
     import streamlit as st
 
-    # デバッグ：GPT評価対象語
-    st.subheader("🧪 GPT評価対象語（new_terms）")
+    st.subheader("🧪 保存語と表示語の一致・キャッシュHIT確認")
+
+    # new_terms ログ出力
+    st.text("【new_terms（保存対象）】")
     st.write(new_terms)
 
-    # デバッグ：表示候補語
-    st.subheader("🧪 結果表示対象語（top_candidates['term']）")
+    # top_candidates["term"] ログ出力
+    st.text("【top_candidates['term']（取得対象）】")
     st.write(top_candidates["term"].tolist())
 
-    # デバッグ：score_cacheの中身
-    st.subheader("🧪 score_cacheの内容（保存済み）")
+    # score_cache ログ出力
+    st.text("【score_cache の内容】")
     st.write(score_cache)
 
-    # デバッグ：スコア取得ヒット確認
-    st.subheader("🧪 スコア取得のキー照合（HIT/MISS）")
-    for term in top_candidates["term"]:
-        key = (original_input, term)
+    # termごとに一致・HITチェック
+    for display_term in top_candidates["term"]:
+        key = (original_input, display_term)
         hit = key in score_cache
-        st.write(f"{key} → {'✅ HIT' if hit else '❌ MISS'}")
+        match_found = any(
+            display_term.strip() == saved_term.strip()
+            for saved_term in new_terms
+        )
+        st.write(f"{key} → {'✅ HIT' if hit else '❌ MISS'} | term一致: {'✅' if match_found else '❌'}")
+
     
     
 

@@ -248,6 +248,13 @@ if st.button("検索"):
                         suffixes=("", "_master")
                     )
 
+                   # ✅ 確率スコアが0%の行を除外
+                   if "score" in final_results.columns:
+                       before = len(final_results)
+                       final_results = final_results[final_results["score"] > 0.0].reset_index(drop=True)
+                       after = len(final_results)
+                       st.info(f"🎯 score=0% の {before - after} 件を除外しました。")
+
                     # ✅ 重複カラムがある場合、除去（Streamlitエラー防止）
                     if final_results.columns.duplicated().any():
                         final_results = final_results.loc[:, ~final_results.columns.duplicated()]

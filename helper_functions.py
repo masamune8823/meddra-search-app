@@ -172,16 +172,16 @@ def rerank_results_batch(original_input, candidates, score_cache=None):
             import re
 
             for line in content.strip().split("\n"):
-            match = re.match(r"^\s*(\d+)\.\s*.*?:\s*([0-9.]+)", line)
-            if match:
-                try:
-                    idx = int(match.group(1))
-                    score = float(match.group(2))
-                    term = new_terms[idx - 1]
-                    score_cache[(original_input, term)] = score
-                except Exception as e:
-                    import streamlit as st
-                    st.warning(f"❌ 保存失敗: line='{line}' | error={e}")
+                match = re.match(r"^\s*(\d+)\.\s*.*?:\s*([0-9.]+)", line)
+                if match:
+                    try:
+                        idx = int(match.group(1))
+                        score = float(match.group(2))
+                        term = new_terms[idx - 1]
+                        score_cache[(original_input, term)] = score
+                    except Exception as e:
+                        import streamlit as st
+                        st.warning(f"❌ 保存失敗: line='{line}' | error={e}")
 
         except Exception as e:
             for term in new_terms:

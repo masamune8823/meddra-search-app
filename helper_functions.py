@@ -185,6 +185,8 @@ def rerank_results_batch(original_input, candidates, score_cache=None):
 
     import streamlit as st
 
+    st.write("🚀 rerank_results_batch() に到達しました")  # 関数が呼ばれているかチェック
+    
     st.subheader("🧪 保存語と表示語の一致・キャッシュHIT確認")
 
     # new_terms ログ出力
@@ -209,6 +211,11 @@ def rerank_results_batch(original_input, candidates, score_cache=None):
         )
         st.write(f"{key} → {'✅ HIT' if hit else '❌ MISS'} | term一致: {'✅' if match_found else '❌'}")
 
+    # new_terms の内容確認
+    st.write("🟡 new_terms:", new_terms)
+
+    if new_terms:
+        st.success("✅ new_terms が存在し、スコア評価ブロックに入りました")
     
     
 

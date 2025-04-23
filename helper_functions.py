@@ -169,18 +169,20 @@ def rerank_results_batch(original_input, candidates, score_cache=None):
             st.subheader("🧾 GPTレスポンス内容（一括形式）")
             st.code(content)
 
+            import re
+
             for line in content.strip().split("\n"):
-                if "." in line:
-                    parts = line.split(".")
-                    try:
-                        idx = int(parts[0].strip())
-                        score = float(parts[1].strip())
-                        term = new_terms[idx - 1]
-                        score_cache[(original_input, term)] = score  # keyを変えるならここも
-                    except:
-                        import streamlit as st
-                        st.warning(f"❌ スコア抽出失敗: line='{line}' | error={e}")
-                        continue
+            match = re.match(r"^\s*(\d+)\.\s*.*?:\s*([0-9.]+)", line)
+            if match:
+                try:
+                    idx = int(match.group(1))
+                    score = float(match.group(2))
+                    term = new_terms[idx - 1]
+                    score_cache[(original_input, term)] = score
+                except Exception as e:
+                    import streamlit as st
+                    st.warning(f"❌ 保存失敗: line='{line}' | error={e}")
+
         except Exception as e:
             for term in new_terms:
                 score_cache[(original_input, term)] = 5.0  # fallback

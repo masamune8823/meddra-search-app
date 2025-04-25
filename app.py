@@ -147,7 +147,8 @@ if st.button("検索"):
         with st.spinner("再スコアリング中（GPT一括）..."):
            score_cache = {}
            reranked = rerank_results_batch(original_input, all_results, score_cache)
-           reranked["score"] = reranked["Relevance"].map(lambda x: round(x, 2))
+           reranked["score"] = rescale_scores(reranked["Relevance"].tolist())
+           reranked["score"] = reranked["score"].map(lambda x: round(x, 1))  # 小数1桁
            
            reranked = pd.merge(
                    reranked,
@@ -246,13 +247,6 @@ if st.button("検索"):
                         right_on="PT_Japanese",
                         suffixes=("", "_master")
                     )
-
-                    # ✅ 確率スコアが0%の行を除外
-                    if "score" in final_results.columns:
-                        before = len(final_results)
-                        final_results = final_results[final_results["score"] > 0.0].reset_index(drop=True)
-                        after = len(final_results)
-                        st.info(f"🎯 score=0% の {before - after} 件を除外しました。")
 
                     # ✅ 重複カラムがある場合、除去（Streamlitエラー防止）
                     if final_results.columns.duplicated().any():

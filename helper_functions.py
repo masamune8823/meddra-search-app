@@ -141,23 +141,15 @@ def rerank_results_batch(original_input, candidates, score_cache=None):
     # st.write("🧪 スコア未評価語数:", len(new_terms), "件")
     # st.write("🧪 未評価語リスト:", new_terms)
     
-    if new_terms:
+   if new_terms:
         # 🔧 入力語ベースのプロンプト構成に統一
-        prompt = f"""以下の日本語の症状「{original_input}」に対して、以下の指定されたMedDRAのPT（Preferred Term）が、症状の記述内容としてどれだけ意味的に一致しているかを評価してください。
-        一致度を 0〜10 の数値（整数または必要に応じて小数）で記述してください。
+        prompt = f"""以下の日本語の症状「{original_input}」に対して、以下のMedDRA用語（PT）がどれくらい意味的に一致しているかを教えてください。一致度を 0〜10 の数値で記述してください。
 
-        スコアの基準：
-        10.0：完全に一致（意味が同じ）
-        7.0〜9.9：非常に近く、妥当な候補
-        4.0〜6.9：やや関連するが曖昧
-        0.1〜3.9：少し関連しているが他の候補が妥当
-        0：まったく無関係
-
-        """
+    """
         for idx, term in enumerate(new_terms, 1):
             prompt += f"{idx}. {term}\n"
 
-        prompt += "\n形式：\n1. 9\n2. 6.5\n3. 3\n... のように記載してください（理由や用語名は不要です）"
+        prompt += "\n形式：\n1. 7\n2. 5\n... のように記載してください。"
         
         messages = [
             {"role": "system", "content": "あなたは医療用語の関連性を数値で判断する専門家です。"},

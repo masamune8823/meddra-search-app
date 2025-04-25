@@ -141,11 +141,12 @@ def rerank_results_batch(original_input, candidates, score_cache=None):
     # st.write("🧪 スコア未評価語数:", len(new_terms), "件")
     # st.write("🧪 未評価語リスト:", new_terms)
     
-   if new_terms:
-        # 🔧 入力語ベースのプロンプト構成に統一
-        prompt = f"""以下の日本語の症状「{original_input}」に対して、以下のMedDRA用語（PT）がどれくらい意味的に一致しているかを教えてください。一致度を 0〜10 の数値で記述してください。
+    if new_terms:
+        # 🔧 プロンプト組み立て（1メッセージに全term）
+        prompt = f"""以下の記述「{query}」に対して、各用語がどれくらい意味的に一致するかを教えてください。
+一致度を 0〜10 の数値で記述してください。
 
-    """
+"""
         for idx, term in enumerate(new_terms, 1):
             prompt += f"{idx}. {term}\n"
 

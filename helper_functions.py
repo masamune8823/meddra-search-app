@@ -159,7 +159,6 @@ def rerank_results_batch(original_input, candidates, score_cache=None):
 
     入力語（日本語）：{original_input}
 
-    候補PT（MedDRA）：
     """
         for idx, term in enumerate(new_terms, 1):
             prompt += f"{idx}. {term}\n"

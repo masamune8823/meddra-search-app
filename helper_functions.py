@@ -143,7 +143,7 @@ def rerank_results_batch(original_input, candidates, score_cache=None):
     
     if new_terms:
         # 🔧 プロンプト組み立て（1メッセージに全term）
-        prompt = f"""以下の記述「{query}」に対して、各用語がどれくらい意味的に一致するかを教えてください。
+        prompt = f"""以下の記述「{original_input}」に対して、各用語がどれくらい意味的に一致するかを教えてください。
 一致度を 0〜10 の数値で記述してください。
 
 """

@@ -134,7 +134,7 @@ def rerank_results_batch(original_input, candidates, score_cache=None):
     new_terms = []
     for i, row in top_candidates.iterrows():
         term = row["term"]
-        if (query, term) not in score_cache:
+        if (original_input, term) not in score_cache:
             new_terms.append(term)
     # ✅ スコア対象の語数と中身をStreamlitで表示（デバッグ用）
     import streamlit as st

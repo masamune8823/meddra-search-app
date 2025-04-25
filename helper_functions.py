@@ -147,11 +147,11 @@ def rerank_results_batch(original_input, candidates, score_cache=None):
 一致度を 0〜10 の数値で記述してください。
 
 スコアの基準
-10：入力語と完全に一致。症状の意味内容が完全に対応している
-7〜9：非常に近い概念。通常のコーディングでは妥当とされる
-4〜6：関連はあるが、やや曖昧さが残る
-1〜3：わずかに関連するが、他のPTの方が妥当である可能性が高い
-0：全く関連がない。意味的にかけ離れている
+10：完全に一致。意味内容が非常によく一致している
+7〜9：かなり近い概念で、通常のコーディングにおいて適切と考えられる
+4〜6：一部関連はあるが、やや文脈が不足しており曖昧さが残る
+1〜3：わずかに関連するが、通常は他のPTの方がより妥当
+0：全く関連がない。意味的に一致していない
 
 """
         for idx, term in enumerate(new_terms, 1):
@@ -160,7 +160,7 @@ def rerank_results_batch(original_input, candidates, score_cache=None):
         prompt += "\n形式：\n1. 7\n2. 5\n... のように記載してください。"
         
         messages = [
-            {"role": "system", "content": "あなたは医療用語の関連性を数値で判断する専門家です。"},
+            {"role": "system", "content": "あなたは医薬品安全監視業務において、自然言語の症状・疾患記述とMedDRA用語（PT）との意味的一致度を専門的に評価する担当者です。"},
             {"role": "user", "content": prompt}
         ]
 

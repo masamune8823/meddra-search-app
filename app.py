@@ -132,7 +132,7 @@ if st.button("検索"):
                     meddra_terms=meddra_terms,
                     synonym_df=synonym_df,
                     top_k_faiss=10,
-                    matched_from_label=f"GPT拡張語: {kw}"  # 🔍 由来をキーワードごとに記録
+                    # matched_from_label=f"GPT拡張語: {kw}"  # 🔍 由来をキーワードごとに記録
                 )
                 search_results.append(result)
 

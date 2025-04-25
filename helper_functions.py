@@ -53,7 +53,7 @@ def search_meddra_v2(original_input, query, faiss_index, meddra_terms, synonym_d
         for _, row in synonym_hits.iterrows():
             term = row["PT_Japanese"]
             if term not in matched_terms:
-                results.append({"original_input": original_input,"term": term, "score": 1.0, "matched_from": "シノニム辞書"})
+                results.append({"original_input": original_input,"query": "","term": term, "score": 1.0, "matched_from": "シノニム辞書"})
                 matched_terms.add(term)
 
     # ✅ 2. 正規辞書照合（部分一致）
@@ -142,14 +142,37 @@ def rerank_results_batch(original_input, candidates, score_cache=None):
     # st.write("🧪 未評価語リスト:", new_terms)
     
     if new_terms:
-        # 🔧 入力語ベースのプロンプト構成に統一
-        prompt = f"""以下の日本語の症状「{original_input}」に対して、以下のMedDRA用語（PT）がどれくらい意味的に一致しているかを教えてください。一致度を 0〜10 の数値で記述してください。
+        # ✅ 入力語ベース + PV業務視点プロンプトに差し替え
+        prompt = f"""あなたは、医薬品の有害事象報告や臨床試験の記述情報を評価・分類するファーマコビジランス（PV）業務担当者です。
+    以下に与えられた「入力語（日本語）」に対して、指定されたMedDRAのPT（Preferred Term）が、症状の記述内容としてどれだけ意味的に一致しているかを評価してください。
 
+    評価は0〜10のスケールで数値化し、出力は以下の形式にしてください（理由記述は不要です）。
+
+    【評価基準】
+
+    スコア	判定基準
+    10	入力語と完全に一致。症状の意味内容が完全に対応している
+    7〜9	非常に近い概念。通常のコーディングで十分妥当とされる
+    4〜6	関連はあるが、文脈や補足がないと曖昧になりうる
+    1〜3	わずかに関連するが、他のPTの方が妥当である可能性が高い
+    0	全く関連がない。入力語とは意味的にかけ離れている
+
+    入力語（日本語）：{original_input}
+
+    候補PT（MedDRA）：
     """
         for idx, term in enumerate(new_terms, 1):
             prompt += f"{idx}. {term}\n"
 
-        prompt += "\n形式：\n1. 7\n2. 5\n... のように記載してください。"
+        prompt += """
+
+    出力形式（必ず以下の形式で）：
+    1. 9
+    2. 7
+    3. 4
+    ...
+    """
+
 
         messages = [
             {"role": "system", "content": "あなたは医療用語の関連性を数値で判断する専門家です。"},

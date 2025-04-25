@@ -60,7 +60,7 @@ def search_meddra_v2(original_input, query, faiss_index, meddra_terms, synonym_d
     for term in meddra_terms:
         if isinstance(term, str) and query.lower() in term.lower():
             if term not in matched_terms:
-                results.append({ "original_input": original_input,"query": query,"term": term, "score": 1.0, "matched_from": "正規辞書"})
+                results.append({ "original_input": original_input,"query": query,"term": term, "score": 1.0, "matched_from": "MedDRA辞書（用語一致）"})
                 matched_terms.add(term)
 
     # ✅ 3. FAISSベクトル検索
@@ -78,7 +78,7 @@ def search_meddra_v2(original_input, query, faiss_index, meddra_terms, synonym_d
                 "query": query,
                 "term": term,
                 "score": float(distances[0][i]),
-                "matched_from": matched_from_label or " FAISSベクトル"
+                "matched_from": matched_from_label or " MedDRA辞書（類似語一致）"
             })
 
     return pd.DataFrame(results)

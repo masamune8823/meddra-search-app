@@ -161,7 +161,7 @@ def rerank_results_batch(original_input, candidates, score_cache=None):
         prompt += "\n形式：\n1. 7\n2. 5\n... のように記載してください。"
         
         messages = [
-            {"role": "system", "content": "あなたは医薬品の有害事象報告に基づき、自然言語とMedDRA用語の関連性を専門的に評価するファーマコビジランス担当者です。"},
+            {"role": "system", "content": "あなたは医療用語の関連性を数値で判断する専門家です。"},
             {"role": "user", "content": prompt}
         ]
 

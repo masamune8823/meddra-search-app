@@ -147,8 +147,9 @@ if st.button("検索"):
         with st.spinner("再スコアリング中（GPT一括）..."):
            score_cache = {}
            reranked = rerank_results_batch(original_input, all_results, score_cache)
-           reranked["score"] = rescale_scores(reranked["Relevance"].tolist())
-           reranked["score"] = reranked["score"].map(lambda x: round(x, 1))  # 小数1桁
+           
+           # ✅ GPTスコア（0〜10）を 0〜100% に変換して表示
+           reranked["score"] = reranked["Relevance"].map(lambda x: round(x * 10, 1))
            
            reranked = pd.merge(
                    reranked,

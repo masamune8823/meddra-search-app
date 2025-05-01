@@ -185,7 +185,7 @@ def rerank_results_batch(original_input, candidates, score_cache=None):
                         score = float(parts[1].strip())
                         term = new_terms[idx - 1]
                         score_cache[(original_input, term)] = score  # keyを変えるならここも
-                    except:
+                    except Exception as e:
                         import streamlit as st
                         st.warning(f"❌ スコア抽出失敗: line='{line}' | error={e}")
                         continue

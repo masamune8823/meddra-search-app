@@ -72,22 +72,22 @@ score_cache = load_score_cache("score_cache.pkl")
 query_cache = load_query_cache("query_expansion_cache.pkl")
 
 # ✅ Streamlitサイドバーにキャッシュ削除ボタンを追加
-if st.sidebar.button("🗑️ スコアキャッシュを削除"):
-    if os.path.exists("score_cache.pkl"):
-        os.remove("score_cache.pkl")
-        score_cache = {}
-        st.sidebar.success("✅ score_cache.pkl を削除しました。再実行時に再作成されます。")
-    else:
-        st.sidebar.warning("⚠️ score_cache.pkl はすでに存在しません。")
+# if st.sidebar.button("🗑️ スコアキャッシュを削除"):
+#     if os.path.exists("score_cache.pkl"):
+#         os.remove("score_cache.pkl")
+#         score_cache = {}
+#         st.sidebar.success("✅ score_cache.pkl を削除しました。再実行時に再作成されます。")
+#     else:
+#         st.sidebar.warning("⚠️ score_cache.pkl はすでに存在しません。")
 
 # ✅ Streamlitサイドバーにクエリ拡張キャッシュ削除ボタンを追加
-if st.sidebar.button("🗑️ 拡張語キャッシュを削除"):
-    if os.path.exists("query_expansion_cache.pkl"):
-        os.remove("query_expansion_cache.pkl")
-        query_cache = {}
-        st.sidebar.success("拡張語キャッシュを削除しました。")
-    else:
-        st.sidebar.warning("拡張語キャッシュは存在しません。")
+# if st.sidebar.button("🗑️ 拡張語キャッシュを削除"):
+#     if os.path.exists("query_expansion_cache.pkl"):
+#         os.remove("query_expansion_cache.pkl")
+#         query_cache = {}
+#         st.sidebar.success("拡張語キャッシュを削除しました。")
+#     else:
+#         st.sidebar.warning("拡張語キャッシュは存在しません。")
 
 
 # ---------------- ユーザー入力 ---------------- #
@@ -117,8 +117,9 @@ if st.button("検索"):
             #     st.info("🆕 新しい拡張語を生成しました（キャッシュ追加済）。")
 
         # ✅ STEP 3.5: デバッグ表示（拡張語の確認）
-        st.subheader("🧠 GPT予測キーワード（整形後）")
-        st.write(predicted_keywords)
+        # 🧪 デバッグ出力: 拡張語（整形後）
+        # st.subheader("🧠 GPT予測キーワード（整形後）")
+        # st.write(predicted_keywords)
 
         # ✅ STEP 4: MedDRA検索（search_meddra_v2 に差し替え）
         with st.spinner("🔍 検索構成: ベクトル検索（意味的近さ）＋正規辞書照合（PT/LLT一致）＋シノニム辞書（表記ゆれ補正）"):
@@ -219,10 +220,12 @@ if st.button("検索"):
 
                 # STEP 6.2: デバッグ出力
                 try:
+                    # 🧪 デバッグ出力: df_for_merge の構造
                     # st.write("🧪 df_for_merge の型:", type(df_for_merge))
                     # st.write("🧪 df_for_merge のカラム:", df_for_merge.columns.tolist() if isinstance(df_for_merge, pd.DataFrame) else "（DataFrameでない）")
 
                     if isinstance(df_for_merge, pd.DataFrame) and "term" in df_for_merge.columns:
+                        # 🧭 term列の確認
                         # preview = df_for_merge["term"].dropna().astype(str).unique().tolist()
                         # st.write("🧭 term列（階層付加用）のユニーク値（抜粋）:", preview[:10])
                         pass  # 表示だけOFF
@@ -252,7 +255,8 @@ if st.button("検索"):
                     # ✅ 重複カラムがある場合、除去（Streamlitエラー防止）
                     if final_results.columns.duplicated().any():
                         final_results = final_results.loc[:, ~final_results.columns.duplicated()]
-
+                    
+                    # 🧪 デバッグ出力: マージ直後のカラム一覧
                     # st.write("🧩 final_results の列一覧（直後）:", final_results.columns.tolist())
                 except Exception as e:
                     st.error(f"❌ 階層マスタとのマージでエラー: {e}")
@@ -260,6 +264,7 @@ if st.button("検索"):
 
 
                 # ✅ STEP 6.4: マージ後の確認と未一致チェック
+                # 🧪 デバッグ出力: df_for_merge の構造
                 # st.write("🧩 final_results の列一覧（STEP 6.4）:", final_results.columns.tolist())
                 # st.write("🔍 マージ対象語数:", len(df_for_merge))
                 # st.write("🔍 階層付与後件数:", len(final_results))
@@ -290,7 +295,7 @@ if st.button("検索"):
                 st.error("❌ final_results が空、またはDataFrameではありません。検索結果が存在しない可能性があります。")
                 st.stop()
                 
-            # ✅ デバッグ出力（オプション）
+            # 🧪 デバッグ出力: final_resultsの型・内容
             # st.write("🔍 final_results の型:", type(final_results))
             # st.write("🔍 final_results の先頭5行:", final_results.head())       
                 

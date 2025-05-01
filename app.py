@@ -299,7 +299,7 @@ if st.button("検索"):
 
 
             display_cols = [
-               "query", "matched_from", "score",
+               "term", "matched_from", "score",
                 "PT_Japanese", "HLT_Japanese", "HLGT_Japanese", "SOC_Japanese"
             ]
 

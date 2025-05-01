@@ -249,6 +249,25 @@ if st.button("検索"):
                         suffixes=("", "_master")
                     )
 
+
+                    # 🧪 デバッグコードをここに追加
+                    import streamlit as st
+
+                    st.subheader("🧪 reranked.columns 一覧")
+                    st.write(reranked.columns.tolist())
+
+                    st.subheader("🧪 final_results.columns 一覧")
+                    st.write(final_results.columns.tolist())
+
+                    if "query" in final_results.columns:
+                        st.subheader("🧪 final_results['query'] のユニーク値")
+                        st.write(final_results["query"].unique())
+                    else:
+                        st.warning("❌ final_results に 'query' 列が存在していません。")
+
+
+
+
                     # ✅ 重複カラムがある場合、除去（Streamlitエラー防止）
                     if final_results.columns.duplicated().any():
                         final_results = final_results.loc[:, ~final_results.columns.duplicated()]

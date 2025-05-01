@@ -238,15 +238,7 @@ if st.button("検索"):
 
                     # ✅ term_master_dfに "term" 列があれば削除（念のため）
                     term_master_clean = term_master_df.drop(columns=["term"], errors="ignore")
-                    
-                    
-                    # ✅ ここで拡張語などをマージする（final_results に引き継ぐため）
-                    reranked = pd.merge(
-                        reranked,
-                        all_results[["term", "query", "matched_from", "original_input"]],
-                      how="left",
-                      on="term"
-                    ) 
+                
                    
                     final_results = pd.merge(
                         reranked,

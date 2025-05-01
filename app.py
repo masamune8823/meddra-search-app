@@ -72,22 +72,22 @@ score_cache = load_score_cache("score_cache.pkl")
 query_cache = load_query_cache("query_expansion_cache.pkl")
 
 # ✅ Streamlitサイドバーにキャッシュ削除ボタンを追加
-if st.sidebar.button("🗑️ スコアキャッシュを削除"):
-    if os.path.exists("score_cache.pkl"):
-        os.remove("score_cache.pkl")
-        score_cache = {}
-        st.sidebar.success("✅ score_cache.pkl を削除しました。再実行時に再作成されます。")
-    else:
-        st.sidebar.warning("⚠️ score_cache.pkl はすでに存在しません。")
+# if st.sidebar.button("🗑️ スコアキャッシュを削除"):
+#     if os.path.exists("score_cache.pkl"):
+#         os.remove("score_cache.pkl")
+#         score_cache = {}
+#         st.sidebar.success("✅ score_cache.pkl を削除しました。再実行時に再作成されます。")
+#     else:
+#         st.sidebar.warning("⚠️ score_cache.pkl はすでに存在しません。")
 
 # ✅ Streamlitサイドバーにクエリ拡張キャッシュ削除ボタンを追加
-if st.sidebar.button("🗑️ 拡張語キャッシュを削除"):
-    if os.path.exists("query_expansion_cache.pkl"):
-        os.remove("query_expansion_cache.pkl")
-        query_cache = {}
-        st.sidebar.success("拡張語キャッシュを削除しました。")
-    else:
-        st.sidebar.warning("拡張語キャッシュは存在しません。")
+# if st.sidebar.button("🗑️ 拡張語キャッシュを削除"):
+#     if os.path.exists("query_expansion_cache.pkl"):
+#         os.remove("query_expansion_cache.pkl")
+#         query_cache = {}
+#         st.sidebar.success("拡張語キャッシュを削除しました。")
+#     else:
+#         st.sidebar.warning("拡張語キャッシュは存在しません。")
 
 
 # ---------------- ユーザー入力 ---------------- #

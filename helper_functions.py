@@ -179,19 +179,18 @@ def rerank_results_batch(original_input, candidates, score_cache=None):
 
             for line in content.strip().split("\n"):
                 if "." in line:
-                    parts = line.split(".")
                     try:
-                        idx = int(parts[0].strip())
-                        score = float(parts[1].strip())
+                        idx_part, rest = line.split(".", 1)
+                        score_str = rest.split(":")[-1].strip()  # 🔍 「:」以降のスコアだけ取り出す
+                        idx = int(idx_part.strip())
+                        score = float(score_str)
                         term = new_terms[idx - 1]
-                        score_cache[(original_input, term)] = score  # keyを変えるならここも
+                        score_cache[(original_input, term)] = score
                     except Exception as e:
-                        import streamlit as st
                         st.warning(f"❌ スコア抽出失敗: line='{line}' | error={e}")
                         continue
         except Exception as e:
             # 🧪 デバッグ出力: GPTスコアリングで例外発生（初回の50%原因調査用）
-            import streamlit as st
             st.warning(f"❌ GPTスコアリングで例外発生（fallback発動）: {e}")
     
             for term in new_terms:

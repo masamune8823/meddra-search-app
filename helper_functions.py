@@ -227,7 +227,7 @@ def rerank_results_batch(original_input, candidates, score_cache=None):
     # new_terms の内容確認
     # st.write("🟡 new_terms:", new_terms)
 
-    if new_terms:
+    # if new_terms:
         # st.success("✅ new_terms が存在し、スコア評価ブロックに入りました")
     
     

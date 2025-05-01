@@ -190,9 +190,9 @@ def rerank_results_batch(original_input, candidates, score_cache=None):
                         st.warning(f"❌ スコア抽出失敗: line='{line}' | error={e}")
                         continue
         except Exception as e:
-             # 🧪 デバッグ出力: GPTスコアリングで例外発生（初回の50%原因調査用）
-             import streamlit as st
-             st.warning(f"❌ GPTスコアリングで例外発生（fallback発動）: {e}")
+            # 🧪 デバッグ出力: GPTスコアリングで例外発生（初回の50%原因調査用）
+            import streamlit as st
+            st.warning(f"❌ GPTスコアリングで例外発生（fallback発動）: {e}")
     
             for term in new_terms:
                 score_cache[(original_input, term)] = 5.0  # fallback

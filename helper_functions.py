@@ -195,21 +195,22 @@ def rerank_results_batch(original_input, candidates, score_cache=None):
 
     import streamlit as st
 
-    st.write("🚀 rerank_results_batch() に到達しました")  # 関数が呼ばれているかチェック
+    # 🧪 デバッグ出力: rerank_results_batch 到達確認
+    # st.write("🚀 rerank_results_batch() に到達しました")  # 関数が呼ばれているかチェック
     
-    st.subheader("🧪 保存語と表示語の一致・キャッシュHIT確認")
+    # st.subheader("🧪 保存語と表示語の一致・キャッシュHIT確認")
 
     # new_terms ログ出力
-    st.text("【new_terms（保存対象）】")
-    st.write(new_terms)
+    # st.text("【new_terms（保存対象）】")
+    # st.write(new_terms)
 
     # top_candidates["term"] ログ出力
-    st.text("【top_candidates['term']（取得対象）】")
-    st.write(top_candidates["term"].tolist())
+    # st.text("【top_candidates['term']（取得対象）】")
+   #  st.write(top_candidates["term"].tolist())
 
     # score_cache ログ出力
-    st.text("【score_cache の内容】")
-    st.write(score_cache)
+    # st.text("【score_cache の内容】")
+    # st.write(score_cache)
 
     # termごとに一致・HITチェック
     for display_term in top_candidates["term"]:
@@ -219,13 +220,14 @@ def rerank_results_batch(original_input, candidates, score_cache=None):
             display_term.strip() == saved_term.strip()
             for saved_term in new_terms
         )
-        st.write(f"{key} → {'✅ HIT' if hit else '❌ MISS'} | term一致: {'✅' if match_found else '❌'}")
+        # st.write(f"{key} → {'✅ HIT' if hit else '❌ MISS'} | term一致: {'✅' if match_found else '❌'}")
 
     # new_terms の内容確認
-    st.write("🟡 new_terms:", new_terms)
+    # st.write("🟡 new_terms:", new_terms)
 
     if new_terms:
-        st.success("✅ new_terms が存在し、スコア評価ブロックに入りました")
+        # 🧪 デバッグ出力: new_terms が存在する旨を明示
+        # st.success("✅ new_terms が存在し、スコア評価ブロックに入りました")
     
     
 

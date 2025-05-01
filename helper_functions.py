@@ -53,7 +53,7 @@ def search_meddra_v2(original_input, query, faiss_index, meddra_terms, synonym_d
         for _, row in synonym_hits.iterrows():
             term = row["PT_Japanese"]
             if term not in matched_terms:
-                results.append({"original_input": original_input,"term": term, "score": 1.0, "matched_from": "シノニム辞書"})
+                results.append({"original_input": original_input,"query": original_input,"term": term, "score": 1.0, "matched_from": "シノニム辞書"})
                 matched_terms.add(term)
 
     # ✅ 2. 正規辞書照合（部分一致）
